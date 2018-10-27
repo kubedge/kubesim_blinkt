@@ -12,21 +12,21 @@ jobs:
   include:
     - stage: build docker image
       script:
-      - export DHUBREPO=$DOCKER_NAMESPACE/kunesim_blinkt-arm32v7
+      - export DHUBREPO=$DOCKER_NAMESPACE/kubesim_blinkt-arm32v7
       - export VERSION=0.1.0
-      - cd kunesim_blinkt
+      - cd kubesim_blinkt
       - CGO_ENABLED=0 GOOS=linux GOARM=7 GOARCH=arm go build -a -installsuffix cgo -o blinkt5 .
       - cd ..
       - docker run --rm --privileged multiarch/qemu-user-static:register --reset
       - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-      - docker build -t $DHUBREPO:$VERSION -f images/kunesim_blinkt/Dockerfile .
+      - docker build -t $DHUBREPO:$VERSION -f images/kubesim_blinkt/Dockerfile .
       - docker images
       - docker tag $DHUBREPO:$VERSION $DHUBREPO:latest
       - docker tag $DHUBREPO:$VERSION $DHUBREPO:travis-$TRAVIS_BUILD_NUMBER
       - docker push $DHUBREPO
     - stage: test
       script:
-      - export DHUBREPO=$DOCKER_NAMESPACE/kunesim_blinkt-arm32v7
+      - export DHUBREPO=$DOCKER_NAMESPACE/kubesim_blinkt-arm32v7
       - export VERSION=0.1.0
       - docker run --rm --privileged multiarch/qemu-user-static:register --reset
       - docker run -d -p 127.0.0.1:8080:80 --name hello $DHUBREPO:$VERSION
