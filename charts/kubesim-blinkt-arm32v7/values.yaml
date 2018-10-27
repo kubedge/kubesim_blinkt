@@ -18,7 +18,7 @@
 replicaCount: 1
 nameOverride: kubesim-blinkt
 nodeSelector:
-  blinktInstalled: true
+  blinktInstalled: "true"
 image:
   repository: kubedge1/kubesim_blinkt-arm32v7
   tag: latest
