@@ -48,6 +48,9 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+             privileged: true
+             allowPrivilegeEscalation: true
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           volumeMounts:
@@ -62,6 +65,7 @@ spec:
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
       volumes:
         - name: kubesim-blinkt-etc
           configMap:
@@ -72,4 +76,3 @@ spec:
         - name: kubedge
           hostPath:
             path: /etc/kubedge
-    {{- end }}

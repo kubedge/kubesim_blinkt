@@ -17,13 +17,11 @@
 # Declare variables to be passed into your templates.
 replicaCount: 1
 nameOverride: kubesim-blinkt
-nodeSelector:
-  kubedgeNodeType: 5g-ran
 image:
   repository: kubedge1/kubesim_blinkt-arm32v7
   tag: latest
   pullPolicy: Always
-  healthRepository: kubedge1/kubesim_health-arm32v7
+  healthRepository: hack4easy/kubesim_health-arm32v7
   healthTag: latest
 service:
   name: kubesim-blinkt
