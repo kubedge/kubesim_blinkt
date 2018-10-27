@@ -1,7 +1,8 @@
-# periBlink
-A port of Pimoroni's blinkt package using golang and  periph.io
+# kubesim_blinkt
 
-Converted my blinkRpio, to use periph.io as this seems to be the standard.
-The documentation for periph.io is very convulated, but seems to work.
+Use the Blinkt to illustrate Helm and Kubernetes behavior
 
-tbc
+## Main tutorials
+
+[Original Fork](https://github.com/richrarobi/periBlink)
+

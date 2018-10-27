@@ -11,7 +11,7 @@ import (
     "os/signal"
     "syscall"
     "math/rand"
-    "github.com/richrarobi/periBlink"
+    "./periBlink"
 )
 
 func delay(ms int) {
@@ -48,8 +48,9 @@ func main() {
 // also reduced brightness looks better hence only up to 5 here
         periBlink.SetPixel( pixel, rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(3) )
         periBlink.Show()
-        r,g,b,l := periBlink.GetPixel( pixel)
-        fmt.Println("getPixel", pixel, r,g,b,l )
+        periBlink.GetPixel( pixel)
+//        r,g,b,l := periBlink.GetPixel( pixel)
+//        fmt.Println("getPixel", pixel, r,g,b,l )
         delay(60)
     }
     
