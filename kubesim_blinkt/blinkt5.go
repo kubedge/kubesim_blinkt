@@ -11,7 +11,7 @@ import (
     "os/signal"
     "syscall"
     "math/rand"
-    "kubedge/kubesim_blinkt/kubesim_blinkt/periBlink"
+    "github.com/kubedge/kubesim_blinkt/kubesim_blinkt/periBlink"
 )
 
 func delay(ms int) {
