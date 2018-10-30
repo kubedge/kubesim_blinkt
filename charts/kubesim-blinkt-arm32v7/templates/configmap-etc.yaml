@@ -21,9 +21,9 @@ metadata:
 data:
   config: |-
     ---
-    algorithm: fixed5
+    algorithm: {{ .Values.blinkt.algorithm }}
     intensity: 3
-    frequency: 500
+    frequency: {{ .Values.blinkt.frequency }}
 {{- if eq .Values.blinkt.release "red" }}
     pixel0: [255, 0, 0]
     pixel1: []

@@ -17,6 +17,8 @@
 # Declare variables to be passed into your templates.
 blinkt:
   release: blue
+  algorithm: fixed5
+  frequency: 500
 replicaCount: 1
 nameOverride: kubesim-blinkt
 nodeSelector:
