@@ -30,6 +30,8 @@ spec:
       labels:
         app: {{ template "kubesim_blinkt.name" . }}
         release: {{ .Release.Name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-etc.yaml") . | sha256sum }}
     spec:
       containers:
         - name: side-{{ .Chart.Name }}
@@ -69,10 +71,10 @@ spec:
       volumes:
         - name: kubesim-blinkt-etc
           configMap:
-            name: kubesim-blinkt-etc
+            name: {{ .Release.Name }}-kubesim-blinkt-etc
             items:
              - key: config
-               path: kubesim_conf.yaml
+               path: blinkt_conf.yaml
         - name: kubedge
           hostPath:
             path: /etc/kubedge

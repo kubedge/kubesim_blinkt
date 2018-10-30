@@ -17,13 +17,14 @@ limitations under the License.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kubesim-blinkt-etc
+  name: {{ .Release.Name }}-kubesim-blinkt-etc
 data:
   config: |-
     ---
     algorithm: fixed5
     intensity: 3
     frequency: 500
+{{- if eq .Values.blinkt.release "red" }}
     pixel0: [255, 0, 0]
     pixel1: []
     pixel2: []
@@ -32,3 +33,31 @@ data:
     pixel5: []
     pixel6: []
     pixel7: []
+{{- else if eq .Values.blinkt.release "green" }}
+    pixel0: []
+    pixel1: [0, 255, 0]
+    pixel2: []
+    pixel3: []
+    pixel4: []
+    pixel5: []
+    pixel6: []
+    pixel7: []
+{{- else if eq .Values.blinkt.release "blue" }}
+    pixel0: []
+    pixel1: []
+    pixel2: [0, 0, 255]
+    pixel3: []
+    pixel4: []
+    pixel5: []
+    pixel6: []
+    pixel7: []
+{{- else }}
+    pixel0: []
+    pixel1: []
+    pixel2: []
+    pixel3: []
+    pixel4: []
+    pixel5: []
+    pixel6: []
+    pixel7: []
+{{- end }}
