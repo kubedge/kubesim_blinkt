@@ -72,7 +72,7 @@ spec:
             name: kubesim-blinkt-etc
             items:
              - key: config
-               path: kubesim_conf.yaml
+               path: blinkt_conf.yaml
         - name: kubedge
           hostPath:
             path: /etc/kubedge
