@@ -55,8 +55,8 @@ spec:
             - containerPort: {{ .Values.service.internalPort }}
           volumeMounts:
             - name: kubesim-blinkt-etc
-              mountPath: /etc/kubedge/kubesim_conf.yaml
-              subPath: kubesim_conf.yaml
+              mountPath: /etc/kubedge/blinkt_conf.yaml
+              subPath: blinkt_conf.yaml
               readOnly: true
             - name: kubedge
               mountPath: /etc/kubedge
