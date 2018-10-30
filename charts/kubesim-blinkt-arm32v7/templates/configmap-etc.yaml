@@ -21,13 +21,14 @@ metadata:
 data:
   config: |-
     ---
-    product_name: nr
-    product_type: 5g
-    product_family: ran
-    product_release: test
-    feature_set1:
-    - one
-    - two
-    feature_set2:
-    - alpha
-    - beta
+    algorithm: blinkt5
+    intensity: 3
+    frequency: 60
+    Pixel0: []
+    Pixel1: []
+    Pixel2: []
+    Pixel3: []
+    Pixel4: []
+    Pixel5: []
+    Pixel6: []
+    Pixel7: []
