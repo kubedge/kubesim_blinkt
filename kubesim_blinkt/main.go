@@ -15,8 +15,8 @@ func delay(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func blinkt5(running bool, conf config.BlinktConfigData) {
-	for running {
+func blinkt5(running *bool, conf config.BlinktConfigData) {
+	for *running {
 		pixel := rand.Intn(8)
 		periBlink.SetPixel(pixel, rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(3))
 		periBlink.Show()
@@ -24,36 +24,64 @@ func blinkt5(running bool, conf config.BlinktConfigData) {
 	}
 }
 
-func fixed5(running bool, conf config.BlinktConfigData) {
-	for running {
+func fixed5(running *bool, conf config.BlinktConfigData) {
+	for *running {
 		if len(conf.Pixel0) != 0 {
 			periBlink.SetPixel(0, conf.Pixel0[0], conf.Pixel0[1], conf.Pixel0[2], conf.Intensity)
 		}
-
 		if len(conf.Pixel1) != 0 {
-			periBlink.SetPixel(0, conf.Pixel1[0], conf.Pixel1[1], conf.Pixel1[2], conf.Intensity)
+			periBlink.SetPixel(1, conf.Pixel1[0], conf.Pixel1[1], conf.Pixel1[2], conf.Intensity)
 		}
 		if len(conf.Pixel2) != 0 {
-			periBlink.SetPixel(0, conf.Pixel2[0], conf.Pixel2[1], conf.Pixel2[2], conf.Intensity)
+			periBlink.SetPixel(2, conf.Pixel2[0], conf.Pixel2[1], conf.Pixel2[2], conf.Intensity)
 		}
 		if len(conf.Pixel3) != 0 {
-			periBlink.SetPixel(0, conf.Pixel3[0], conf.Pixel3[1], conf.Pixel3[2], conf.Intensity)
+			periBlink.SetPixel(3, conf.Pixel3[0], conf.Pixel3[1], conf.Pixel3[2], conf.Intensity)
 		}
 		if len(conf.Pixel4) != 0 {
-			periBlink.SetPixel(0, conf.Pixel4[0], conf.Pixel4[1], conf.Pixel4[2], conf.Intensity)
+			periBlink.SetPixel(4, conf.Pixel4[0], conf.Pixel4[1], conf.Pixel4[2], conf.Intensity)
 		}
 		if len(conf.Pixel5) != 0 {
-			periBlink.SetPixel(0, conf.Pixel5[0], conf.Pixel5[1], conf.Pixel5[2], conf.Intensity)
+			periBlink.SetPixel(5, conf.Pixel5[0], conf.Pixel5[1], conf.Pixel5[2], conf.Intensity)
 		}
 		if len(conf.Pixel6) != 0 {
-			periBlink.SetPixel(0, conf.Pixel6[0], conf.Pixel6[1], conf.Pixel6[2], conf.Intensity)
+			periBlink.SetPixel(6, conf.Pixel6[0], conf.Pixel6[1], conf.Pixel6[2], conf.Intensity)
 		}
 		if len(conf.Pixel7) != 0 {
-			periBlink.SetPixel(0, conf.Pixel7[0], conf.Pixel7[1], conf.Pixel7[2], conf.Intensity)
+			periBlink.SetPixel(7, conf.Pixel7[0], conf.Pixel7[1], conf.Pixel7[2], conf.Intensity)
 		}
 
 		periBlink.Show()
 		delay(conf.Frequency)
+
+		if len(conf.Pixel0) != 0 {
+			periBlink.SetPixel(0, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel1) != 0 {
+			periBlink.SetPixel(1, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel2) != 0 {
+			periBlink.SetPixel(2, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel3) != 0 {
+			periBlink.SetPixel(3, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel4) != 0 {
+			periBlink.SetPixel(4, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel5) != 0 {
+			periBlink.SetPixel(5, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel6) != 0 {
+			periBlink.SetPixel(6, 0, 0, 0, 0)
+		}
+		if len(conf.Pixel7) != 0 {
+			periBlink.SetPixel(7, 0, 0, 0, 0)
+		}
+
+		periBlink.Show()
+		delay(conf.Frequency)
+
 	}
 }
 
@@ -85,9 +113,9 @@ func main() {
 	conf.Config()
 
 	if conf.Algorithm == "blinkt5" {
-		blinkt5(running, conf)
+		blinkt5(&running, conf)
 	} else {
-		fixed5(running, conf)
+		fixed5(&running, conf)
 	}
 	fmt.Println("Stopping")
 	periBlink.Exit()

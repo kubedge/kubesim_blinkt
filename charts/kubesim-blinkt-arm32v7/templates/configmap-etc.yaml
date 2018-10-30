@@ -21,14 +21,14 @@ metadata:
 data:
   config: |-
     ---
-    algorithm: blinkt5
+    algorithm: fixed5
     intensity: 3
-    frequency: 60
-    Pixel0: []
-    Pixel1: []
-    Pixel2: []
-    Pixel3: []
-    Pixel4: []
-    Pixel5: []
-    Pixel6: []
-    Pixel7: []
+    frequency: 500
+    pixel0: [255, 0, 0]
+    pixel1: []
+    pixel2: []
+    pixel3: []
+    pixel4: []
+    pixel5: []
+    pixel6: []
+    pixel7: []
