@@ -80,7 +80,13 @@ func fixed5(running *bool, conf config.BlinktConfigData) {
 		}
 
 		periBlink.Show()
-		delay(conf.Frequency)
+		if conf.Algorithm == "fixed5" {
+			// We only leave the led dark for
+			// a couple of milliseconds
+			delay(10)
+		} else {
+			delay(conf.Frequency)
+		}
 
 	}
 }
