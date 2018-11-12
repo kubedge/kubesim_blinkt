@@ -34,7 +34,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/configmap-etc.yaml") . | sha256sum }}
     spec:
       containers:
-        - name: side-{{ .Chart.Name }}
+        - name: configapi
           image: "{{ .Values.image.healthRepository }}:{{ .Values.image.healthTag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -47,7 +47,7 @@ spec:
             httpGet:
               path: /readiness
               port: {{ .Values.service.healthPort }}
-        - name: {{ .Chart.Name }}
+        - name: main
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
