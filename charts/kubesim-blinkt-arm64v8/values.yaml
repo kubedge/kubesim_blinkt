@@ -24,10 +24,10 @@ nameOverride: kubesim-blinkt
 nodeSelector:
   blinktInstalled: "true"
 image:
-  repository: kubedge1/kubesim_blinkt-arm32v7
+  repository: kubedge1/kubesim_blinkt-arm64v8
   tag: latest
   pullPolicy: IfNotPresent
-  healthRepository: hack4easy/kubesim_health-arm32v7
+  healthRepository: hack4easy/kubesim_health-arm64v8
   healthTag: latest
 service:
   name: kubesim-blinkt
