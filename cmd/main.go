@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/kubedge/kubesim_blinkt/config"
-	"github.com/kubedge/kubesim_blinkt/periBlink"
+	"github.com/kubedge/kubesim_blinkt/pkg/config"
+	"github.com/kubedge/kubesim_blinkt/pkg/periBlink"
 	"math/rand"
 	"os"
 	"os/signal"
