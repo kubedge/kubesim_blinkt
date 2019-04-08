@@ -31,7 +31,7 @@ vet-v1: fmt
 	go vet -composites=false -tags=v1 ./pkg/... ./cmd/...
 
 # Build the docker image
-docker-build: fmt vet-v1 docker-build-arm32v7
+docker-build: fmt vet-v1 docker-build-arm32v7 docker-build-arm64v8
 
 docker-build-arm32v7:
 	GOOS=linux GOARM=7 GOARCH=arm CGO_ENABLED=0 go build -o build/_output/arm32v7/blinkt5 -gcflags all=-trimpath=${GOPATH} -asmflags all=-trimpath=${GOPATH} -tags=v1 ./cmd/...
@@ -44,7 +44,7 @@ docker-build-arm64v8:
 	docker tag ${IMG_ARM64V8} ${DHUBREPO_ARM64V8}:latest
 
 # Push the docker image
-docker-push: docker-push-arm32v7
+docker-push: docker-push-arm32v7 docker-push-arm64v8
 
 docker-push-arm32v7:
 	docker push ${IMG_ARM32V7}
