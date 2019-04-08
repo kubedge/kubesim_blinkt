@@ -1,0 +1,5 @@
+FROM scratch
+ADD build/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ADD build/_output/arm64v8/blinkt5 /blinkt5
+EXPOSE 8080
+CMD ["/blinkt5"]
