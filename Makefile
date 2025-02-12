@@ -1,10 +1,12 @@
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.1.0
+VERSION_V1       ?= 0.2.24
+DHUBREPO         ?= kubedge1/${COMPONENT}
 DHUBREPO_ARM32V7 ?= kubedge1/${COMPONENT}-arm32v7
 DHUBREPO_ARM64V8 ?= kubedge1/${COMPONENT}-arm64v8
 DOCKER_NAMESPACE ?= kubedge1
+IMG              ?= ${DHUBREPO}:${VERSION_V1}
 IMG_ARM32V7      ?= ${DHUBREPO_ARM32V7}:${VERSION_V1}
 IMG_ARM64V8      ?= ${DHUBREPO_ARM64V8}:${VERSION_V1}
 K8S_NAMESPACE    ?= default
@@ -43,6 +45,17 @@ docker-build-arm64v8:
 	docker build . -f build/Dockerfile.arm64v8 -t ${IMG_ARM64V8}
 	docker tag ${IMG_ARM64V8} ${DHUBREPO_ARM64V8}:latest
 
+PLATFORMS ?= linux/arm64,linux/amd64,linux/arm/v7
+.PHONY: docker-buildx
+docker-buildx: ## Build and push docker image for the manager for cross-platform support
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/Dockerfile.buildkit > Dockerfile.cross
+	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
+	$(CONTAINER_TOOL) buildx use project-v3-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} --tag ${DHUBREPO}:latest -f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx rm project-v3-builder
+	rm Dockerfile.cross
+
 # Push the docker image
 docker-push: docker-push-arm32v7 docker-push-arm64v8
 
@@ -63,3 +76,9 @@ install-arm64v8:
 
 purge: setup
 	helm delete --purge blinkt5
+
+# Build the docker image for cross-plaform support
+CONTAINER_TOOL ?= docker
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
