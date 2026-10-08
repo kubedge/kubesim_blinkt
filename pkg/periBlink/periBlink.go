@@ -54,6 +54,7 @@ var (
 	pix         []Pix
 	blinkt      [numPx]Blinkt
 	dat, clk    outputPin
+	lines       string
 )
 
 // Exit clears the LEDs (unless disabled) and releases the GPIO lines.
@@ -190,16 +191,22 @@ func Setup() error {
 	if gpioSetUp {
 		return nil
 	}
-	d, err := requestOutput(datOffset)
+	d, dDesc, err := requestOutput(datOffset)
 	if err != nil {
 		return err
 	}
-	c, err := requestOutput(clkOffset)
+	c, cDesc, err := requestOutput(clkOffset)
 	if err != nil {
 		d.Close()
 		return err
 	}
 	dat, clk = d, c
+	lines = fmt.Sprintf("data=%s clock=%s", dDesc, cDesc)
 	gpioSetUp = true
 	return nil
+}
+
+// Lines describes the GPIO lines held since Setup, e.g. "data=gpiochip0:23 clock=gpiochip0:24".
+func Lines() string {
+	return lines
 }

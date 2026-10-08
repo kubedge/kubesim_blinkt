@@ -1,7 +1,7 @@
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.2.24
+VERSION_V1       ?= 0.3.0
 DHUBREPO         ?= kubedge1/${COMPONENT}
 DHUBREPO_ARM32V7 ?= kubedge1/${COMPONENT}-arm32v7
 DHUBREPO_ARM64V8 ?= kubedge1/${COMPONENT}-arm64v8
@@ -76,6 +76,15 @@ install-arm64v8:
 
 purge: setup
 	helm delete --purge blinkt5
+
+# Plain manifests (no Helm). Label each Blinkt! node first:
+#   kubectl label node <node> blinktInstalled=true
+.PHONY: deploy undeploy
+deploy:
+	kubectl apply -f deploy/kubesim-blinkt.yaml
+
+undeploy:
+	kubectl delete -f deploy/kubesim-blinkt.yaml
 
 # Build the docker image for cross-plaform support
 CONTAINER_TOOL ?= docker
