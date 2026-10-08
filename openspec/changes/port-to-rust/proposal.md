@@ -16,11 +16,12 @@ more features land on the Go side.
   - same shared-state file format and locking.
 - A Rust binary and a Go 0.4.x binary SHALL interoperate on the same node: same `blinkt.lock` and
   `blinkt_state.json`, same merge rule. Simulator pods can therefore move from one to the other one at a time.
-- The container image keeps its name (`docker.io/kubedge1/kubesim_blinkt`), entrypoint (`/blinkt5`), base
-  (`FROM scratch`) and platforms (`linux/arm64`, `linux/amd64`). The Rust build is the default image
-  (`build/Dockerfile.rust`, `make docker-buildx`).
+- The Rust image keeps the entrypoint (`/blinkt5`), base (`FROM scratch`) and platforms (`linux/arm64`,
+  `linux/amd64`). It is published as `docker.io/kubedge1/kubesim_blinkt_rs` (`build/Dockerfile.rust`,
+  `make docker-buildx IMPL=rust`). Go stays the default (operator decision, 2026-10-08):
+  `kubedge1/kubesim_blinkt_go`, also published as `kubedge1/kubesim_blinkt`.
 - The Go implementation stays in the repo **side by side** with the Rust one (operator decision, 2026-10-08).
-  Either can be built: `make docker-buildx IMPL=go` uses `build/Dockerfile.golang` and tags `<version>-go`.
+  Either can be built: `make docker-buildx` (Go, default) or `make docker-buildx IMPL=rust`.
   `make test lint` covers both. Both are held to the same `tests/fixtures` and to each other (`make interop`).
 - Out of scope:
   - new features, including any Kubernetes DRA integration (see the separate `dra-blinkt-driver` change);
@@ -51,7 +52,8 @@ implementation must meet.
   `aarch64` and `x86_64`. The image stays `FROM scratch`.
 - **Dependencies:** a Rust GPIO character-device crate, serde/serde_json, and a flock binding. Exact crates are
   in design.md.
-- **Release:** published as `kubedge1/kubesim_blinkt` 0.5.0. The simulator charts' `blinktTag` moves only after
-  hardware verification.
+- **Release:** the Rust build was first published as `kubedge1/kubesim_blinkt:0.5.0`. From 0.5.1 it is
+  `kubedge1/kubesim_blinkt_rs`, and `kubedge1/kubesim_blinkt` is the Go build again. The simulator charts'
+  `blinktTag` moves only after hardware verification.
 - **Related:** `go-version-bump`, `adopt-go-ci` and `test-coverage-uplift` still apply to the Go
   implementation. `buildx-multiarch-image` applies to both images.

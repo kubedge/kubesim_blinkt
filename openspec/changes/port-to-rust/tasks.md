@@ -26,7 +26,7 @@
 ## 5. Build and image
 
 - [x] 5.1 Switch `build/Dockerfile.buildkit` to the cargo-zigbuild musl cross-build and update Makefile targets (`fmt`, `lint`, `test`, `docker-buildx`). Verify `docker buildx build --platform linux/arm64,linux/amd64` succeeds without pushing, and the arm64 image smoke-run prints `blinkt: GPIO setup failed`.
-- [x] 5.2 Keep the Go implementation side by side (amended 2026-10-08; the first pass removed it). `build/Dockerfile.golang` and `make … IMPL=go` build it, `go-test` and `go-lint` check it, Go tests read the shared `tests/fixtures`, and interop builds both from the tree. Remove only the Go-only legacy build (arm32v7/arm64v8 Dockerfiles, Travis). Verify `make test lint interop` passes and `make docker-buildx-check IMPL=rust` and `IMPL=go` both build.
+- [x] 5.2 Keep the Go implementation side by side (amended 2026-10-08; the first pass removed it). `build/Dockerfile.golang` and `make docker-buildx` (Go is the default; Rust is `IMPL=rust`) build it, `go-test` and `go-lint` check it, Go tests read the shared `tests/fixtures`, and interop builds both from the tree. Remove only the Go-only legacy build (arm32v7/arm64v8 Dockerfiles, Travis). Verify `make test lint interop` passes and `make docker-buildx-check` (Go) and `IMPL=rust` both build.
 
 ## 6. Hardware and release
 

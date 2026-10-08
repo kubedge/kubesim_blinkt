@@ -1,36 +1,43 @@
 
 # Two implementations live side by side and build the same /blinkt5 program:
-#   Rust (src/, Cargo.toml)     - the default image
-#   Go   (cmd/, pkg/, go.mod)   - image tags carry a -go suffix
+#   Go   (cmd/, pkg/, go.mod)   -> kubedge1/kubesim_blinkt_go   (default)
+#   Rust (src/, Cargo.toml)     -> kubedge1/kubesim_blinkt_rs
+# The default implementation is also published as kubedge1/kubesim_blinkt.
 # Both are checked against tests/fixtures and against each other (make interop).
 #
 #   make test lint                     both implementations
-#   make docker-buildx                 push the Rust image (IMPL=rust, default)
-#   make docker-buildx IMPL=go         push the Go image
+#   make docker-buildx                 push the Go image (IMPL=go, default) + kubesim_blinkt
+#   make docker-buildx IMPL=rust       push the Rust image
+#   make docker-buildx-all             push both
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.5.0
-DHUBREPO         ?= kubedge1/${COMPONENT}
+VERSION_V1       ?= 0.5.1
 DOCKER_NAMESPACE ?= kubedge1
+DHUBREPO         ?= ${DOCKER_NAMESPACE}/${COMPONENT}
 K8S_NAMESPACE    ?= default
 
-IMPL ?= rust
-ifeq ($(IMPL),rust)
-DOCKERFILE := build/Dockerfile.rust
-TAG_SUFFIX :=
-else ifeq ($(IMPL),go)
+# Which implementation kubesim_blinkt (no suffix) points to.
+DEFAULT_IMPL ?= go
+IMPL         ?= $(DEFAULT_IMPL)
+ifeq ($(IMPL),go)
 DOCKERFILE := build/Dockerfile.golang
-TAG_SUFFIX := -go
+IMPL_REPO  := ${DHUBREPO}_go
+else ifeq ($(IMPL),rust)
+DOCKERFILE := build/Dockerfile.rust
+IMPL_REPO  := ${DHUBREPO}_rs
 else
-$(error IMPL must be rust or go, not '$(IMPL)')
+$(error IMPL must be go or rust, not '$(IMPL)')
 endif
-IMG        ?= ${DHUBREPO}:${VERSION_V1}${TAG_SUFFIX}
-IMG_LATEST ?= ${DHUBREPO}:latest${TAG_SUFFIX}
+IMG  := ${IMPL_REPO}:${VERSION_V1}
+TAGS := -t ${IMG} -t ${IMPL_REPO}:latest
+ifeq ($(IMPL),$(DEFAULT_IMPL))
+TAGS += -t ${DHUBREPO}:${VERSION_V1} -t ${DHUBREPO}:latest
+endif
 
 .PHONY: all test lint fmt interop clean \
 	rust-test rust-lint rust-fmt go-test go-lint go-fmt \
-	docker-buildx docker-buildx-check deploy undeploy install purge
+	docker-buildx docker-buildx-all docker-buildx-check deploy undeploy install purge
 
 all: test lint
 
@@ -74,7 +81,15 @@ clean:
 # manifest list, so this pushes.
 PLATFORMS ?= linux/arm64,linux/amd64
 docker-buildx: $(IMPL)-test $(IMPL)-lint ## Build and push the multi-arch image for IMPL
-	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${IMG} -t ${IMG_LATEST} -f $(DOCKERFILE) .
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) $(TAGS) \
+	  --label org.opencontainers.image.revision=$$(git rev-parse HEAD) \
+	  --label org.opencontainers.image.source=https://github.com/kubedge/kubesim_blinkt \
+	  -f $(DOCKERFILE) .
+
+# Push both implementations
+docker-buildx-all:
+	$(MAKE) docker-buildx IMPL=go
+	$(MAKE) docker-buildx IMPL=rust
 
 # Same multi-arch build without pushing
 docker-buildx-check:
@@ -82,7 +97,7 @@ docker-buildx-check:
 
 # Helm 3 install of the standalone chart against ~/.kube/config
 install:
-	helm install blinkt5 charts/kubesim-blinkt --set image.repository=${DHUBREPO},image.tag=${VERSION_V1}${TAG_SUFFIX} --namespace ${K8S_NAMESPACE}
+	helm install blinkt5 charts/kubesim-blinkt --set image.repository=${IMPL_REPO},image.tag=${VERSION_V1} --namespace ${K8S_NAMESPACE}
 
 purge:
 	helm uninstall blinkt5 --namespace ${K8S_NAMESPACE}

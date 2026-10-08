@@ -17,7 +17,7 @@ This file orients Claude Code at the start of every session in this repo.
 
 ## Stack & layout
 
-- **Stack:** rust + go, side by side (Rust `src/` is the default image; Go `cmd/` `pkg/` builds with `IMPL=go`; see README "Develop")
+- **Stack:** go + rust, side by side (Go `cmd/` `pkg/` is the default, image `kubesim_blinkt_go` = `kubesim_blinkt`; Rust `src/` builds with `IMPL=rust`, image `kubesim_blinkt_rs`; see README "Develop")
 - **Owner:** `kubedge` (GitHub)
 - **Bootstrapped from:** [`claude-meta@109291c8b9940e3d6cb50fbb602839acdab85b0b`](https://github.com/alemaxdesign/claude-meta) on 2026-08-16T06:10:03Z
 
