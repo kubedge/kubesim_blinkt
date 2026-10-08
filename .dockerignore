@@ -1,4 +1,5 @@
 target/
+rust-blinkt/target/
 .local/
 build/_output/
 .git/

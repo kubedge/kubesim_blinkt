@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kubedge/kubesim_blinkt/pkg/config"
-	"github.com/kubedge/kubesim_blinkt/pkg/ledstate"
-	"github.com/kubedge/kubesim_blinkt/pkg/periBlink"
+	"github.com/kubedge/kubesim_blinkt/go-blinkt/pkg/config"
+	"github.com/kubedge/kubesim_blinkt/go-blinkt/pkg/ledstate"
+	"github.com/kubedge/kubesim_blinkt/go-blinkt/pkg/periBlink"
 )
 
 // defaultFrequency applies when the config omits frequency (the kubesim

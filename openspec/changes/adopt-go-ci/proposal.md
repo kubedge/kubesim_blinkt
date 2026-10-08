@@ -1,5 +1,7 @@
 # Adopt the class-M Go CI
 
+> **Note (2026-10-08):** the repo now has three code roots: `go-blinkt/` (Go module), `rust-blinkt/` (Cargo crate) and `dra-driver/` (Go module). There is no `go.mod` at the root, so a class-M `ci.yml` that auto-detects a root `go.mod` will not trigger. Rewrite this change for all three roots, plus `make interop` and the image checks, before applying it.
+
 ## Why
 
 The repo builds/tests locally via raw `go` + the Makefile, but has no CI that runs on

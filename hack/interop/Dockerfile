@@ -3,9 +3,9 @@
 # this tree and runs them against one state directory. Run: make interop
 FROM golang:1.26-bookworm AS go
 WORKDIR /gosrc
-COPY go.mod go.sum ./
-COPY cmd/ cmd/
-COPY pkg/ pkg/
+COPY go-blinkt/go.mod go-blinkt/go.sum ./
+COPY go-blinkt/cmd/ cmd/
+COPY go-blinkt/pkg/ pkg/
 RUN mkdir -p cmd/interop && cat > cmd/interop/main.go <<'GO'
 package main
 
@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kubedge/kubesim_blinkt/pkg/ledstate"
+	"github.com/kubedge/kubesim_blinkt/go-blinkt/pkg/ledstate"
 )
 
 func main() {
@@ -47,6 +47,7 @@ RUN CGO_ENABLED=0 go build -o /interop-go ./cmd/interop
 FROM rust:1.99-bookworm AS rust
 WORKDIR /src
 COPY . .
+WORKDIR /src/rust-blinkt
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/target \
     CARGO_TARGET_DIR=/target cargo build --example interop && cp /target/debug/examples/interop /interop-rs

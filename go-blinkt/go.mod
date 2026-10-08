@@ -1,4 +1,4 @@
-module github.com/kubedge/kubesim_blinkt
+module github.com/kubedge/kubesim_blinkt/go-blinkt
 
 go 1.26.0
 

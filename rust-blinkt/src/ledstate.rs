@@ -288,7 +288,7 @@ mod tests {
 
     fn fixture() -> String {
         fs::read_to_string(format!(
-            "{}/tests/fixtures/state_go.json",
+            "{}/../tests/fixtures/state_go.json",
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap()
