@@ -31,4 +31,4 @@
 ## 6. Hardware and release
 
 - [x] 6.1 Hardware test on a Pi 3 (home-pi): the Rust binary alone (8-colour pattern), then Rust plus Go 0.4.0 sharing LEDs (the 4-phase shared test). Verify the operator confirms each phase and there are no GPIO errors.
-- [ ] 6.2 Publish `kubedge1/kubesim_blinkt:0.5.0` via `make docker-buildx`. Verify `imagetools inspect` shows linux/arm64 and linux/amd64, and an anonymous pull works.
+- [x] 6.2 Publish `kubedge1/kubesim_blinkt:0.5.0` via `make docker-buildx`. Verify `imagetools inspect` shows linux/arm64 and linux/amd64, and an anonymous pull works.
