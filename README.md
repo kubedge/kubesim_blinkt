@@ -47,7 +47,7 @@ Two implementations of the same program live side by side and build the same `/b
 | | Go (default) | Rust |
 |---|---|---|
 | Source | `go.mod`, `cmd/`, `pkg/` | `Cargo.toml`, `src/` |
-| Toolchain | local `go` (go.mod: 1.23) | pinned `rust:1.99` container (`hack/cargo.sh`), no local Rust needed |
+| Toolchain | local `go` (go.mod: 1.26) | pinned `rust:1.99` container (`hack/cargo.sh`), no local Rust needed |
 | Dockerfile | `build/Dockerfile.golang` | `build/Dockerfile.rust` |
 | Image | `kubedge1/kubesim_blinkt_go:<version>`, also published as `kubedge1/kubesim_blinkt:<version>` | `kubedge1/kubesim_blinkt_rs:<version>` |
 
