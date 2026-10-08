@@ -45,16 +45,14 @@ docker-build-arm64v8:
 	docker build . -f build/Dockerfile.arm64v8 -t ${IMG_ARM64V8}
 	docker tag ${IMG_ARM64V8} ${DHUBREPO_ARM64V8}:latest
 
-PLATFORMS ?= linux/arm64,linux/amd64,linux/arm/v7
+# build/Dockerfile.buildkit pins the builder to $$BUILDPLATFORM and cross-compiles
+# (CGO_ENABLED=0, GOARCH=$$TARGETARCH), so no per-arch emulation is needed.
+# arm/v7 is retired: every Pi now runs arm64. Requires a live buildx builder
+# (e.g. `colima start`). buildx cannot --load a manifest list, so this pushes.
+PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
-docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' build/Dockerfile.buildkit > Dockerfile.cross
-	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
-	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} --tag ${DHUBREPO}:latest -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm project-v3-builder
-	rm Dockerfile.cross
+docker-buildx: fmt vet-v1 ## Build and push the multi-arch image
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${IMG} -t ${DHUBREPO}:latest -f build/Dockerfile.buildkit .
 
 # Push the docker image
 docker-push: docker-push-arm32v7 docker-push-arm64v8
