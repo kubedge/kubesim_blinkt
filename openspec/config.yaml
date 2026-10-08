@@ -1,0 +1,13 @@
+schema: spec-driven
+
+context: |
+  Role: STANDALONE in the kubedge org - no intra-org Go dependency (no operator-base /
+  kubesim_base). Blinkt LED simulator for the Raspberry Pi Blinkt hardware (arm).
+
+  Build / versioning:
+    - go currently 1.23. Modernize: adopt Go CI, bump go, buildx multi-arch (arm64 primary:
+      Apple-Silicon dev + Pi armv8), add tests. NO base realign (nothing to realign to).
+
+rules:
+  spec:
+    - Describe CURRENT behavior; do not spec aspirational features.
