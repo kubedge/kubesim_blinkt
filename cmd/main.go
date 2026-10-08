@@ -125,9 +125,12 @@ func main() {
 	periBlink.SetLuminance(1)
 	periBlink.Clear()
 	show()
+	log.Printf("blinkt: GPIO ready (%s)", periBlink.Lines())
 
 	var conf config.BlinktConfigData
 	conf.Config()
+	// Deploy verification greps for this line.
+	log.Printf("blinkt: running algorithm=%s frequency=%dms config=%s", conf.Algorithm, conf.Frequency, config.Path())
 
 	if conf.Algorithm == "blinkt5" {
 		blinkt5(&running, conf)

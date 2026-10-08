@@ -17,11 +17,11 @@ func findLine(offset int) (string, int) {
 	return defaultChip, offset
 }
 
-func requestOutput(offset int) (outputPin, error) {
+func requestOutput(offset int) (outputPin, string, error) {
 	chip, off := findLine(offset)
 	l, err := gpiocdev.RequestLine(chip, off, gpiocdev.AsOutput(0), gpiocdev.WithConsumer(consumer))
 	if err != nil {
-		return nil, fmt.Errorf("periBlink: request %s line %d (BCM GPIO%d): %w", chip, off, offset, err)
+		return nil, "", fmt.Errorf("periBlink: request %s line %d (BCM GPIO%d): %w", chip, off, offset, err)
 	}
-	return l, nil
+	return l, fmt.Sprintf("%s:%d", chip, off), nil
 }

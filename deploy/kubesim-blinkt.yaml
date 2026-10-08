@@ -1,0 +1,93 @@
+# kubesim_blinkt: one pod per Raspberry Pi that has a Pimoroni Blinkt! fitted.
+#
+#   kubectl label node <node> blinktInstalled=true
+#   kubectl apply -f deploy/kubesim-blinkt.yaml
+#
+# The pod drives BCM GPIO23/24 through /dev/gpiochip0. The kernel grants a line to
+# one process at a time, so do not run the host binary on a labelled node.
+# Success in the log:  "blinkt: GPIO ready (...)" then "blinkt: running algorithm=..."
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubesim-blinkt
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesim-blinkt-config
+  namespace: kubesim-blinkt
+data:
+  # Read once at start-up: after editing, run
+  #   kubectl -n kubesim-blinkt rollout restart daemonset/kubesim-blinkt
+  blinkt_conf.yaml: |
+    ---
+    # all 8 LEDs in distinct colours, blinking every 500 ms
+    algorithm: fixed
+    intensity: 3
+    frequency: 500
+    pixel0: [255, 0, 0]
+    pixel1: [255, 128, 0]
+    pixel2: [255, 255, 0]
+    pixel3: [0, 255, 0]
+    pixel4: [0, 255, 255]
+    pixel5: [0, 0, 255]
+    pixel6: [128, 0, 255]
+    pixel7: [255, 255, 255]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubesim-blinkt
+  namespace: kubesim-blinkt
+  labels:
+    app.kubernetes.io/name: kubesim-blinkt
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubesim-blinkt
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Delete the old pod before starting the new one: both cannot hold GPIO23/24.
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubesim-blinkt
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        blinktInstalled: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      # SIGTERM clears the LEDs and releases the lines within about a second.
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: blinkt
+          image: docker.io/kubedge1/kubesim_blinkt:0.3.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BLINKT_CONFIG
+              value: /etc/kubedge/blinkt_conf.yaml
+          securityContext:
+            # Needed for /dev/gpiochip0: the container runtime only allows host
+            # devices into the device cgroup for privileged containers.
+            privileged: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubedge
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: kubesim-blinkt-config

@@ -52,7 +52,8 @@ func (config *BlinktConfigData) Config() {
 
 	yamlFile, err := ioutil.ReadFile(Path())
 	if err != nil {
-		log.Printf("yamlFile.Get err   #%v ", err)
+		// Without a config fixed5 lights nothing, so fail visibly instead.
+		log.Fatalf("blinkt: read config: %v", err)
 	}
 
 	err = yaml.Unmarshal(yamlFile, config)
