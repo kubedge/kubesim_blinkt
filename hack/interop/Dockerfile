@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Go <-> Rust shared-state interop check: builds both implementations from
 # this tree and runs them against one state directory. Run: make interop
-FROM golang:1.23-bookworm AS go
+FROM golang:1.26-bookworm AS go
 WORKDIR /gosrc
 COPY go.mod go.sum ./
 COPY cmd/ cmd/

@@ -5,7 +5,7 @@ context: |
   kubesim_base). Blinkt LED simulator for the Raspberry Pi Blinkt hardware (arm).
 
   Build / versioning:
-    - Two implementations side by side, building the same /blinkt5: Go (cmd/, pkg/, go 1.23;
+    - Two implementations side by side, building the same /blinkt5: Go (cmd/, pkg/, go 1.26;
       default; image kubesim_blinkt_go, also published as kubesim_blinkt) and Rust (src/; image
       kubesim_blinkt_rs). Both are held to tests/fixtures and to each
       other (make interop). Cargo runs in the pinned rust:1.99 container (hack/cargo.sh).
