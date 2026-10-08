@@ -1,5 +1,7 @@
 # Adopt the class-M Go CI
 
+> **Superseded** by `port-to-rust` (2026-10-08): the Go code this change targeted was replaced by the Rust crate. Rust CI and test coverage would need a fresh proposal. Archive or delete this change.
+
 ## Why
 
 The repo builds/tests locally via raw `go` + the Makefile, but has no CI that runs on

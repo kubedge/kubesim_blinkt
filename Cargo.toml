@@ -1,0 +1,40 @@
+[package]
+name = "kubesim_blinkt"
+version = "0.5.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Drives a Pimoroni Blinkt! shared by kubesim simulator pods"
+repository = "https://github.com/kubedge/kubesim_blinkt"
+publish = false
+
+[lib]
+name = "kubesim_blinkt"
+path = "src/lib.rs"
+
+[[bin]]
+name = "blinkt5"
+path = "src/main.rs"
+
+[dependencies]
+fastrand = "2.5"
+rustix = { version = "1.1", features = ["fs", "system"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+signal-hook = "0.4"
+time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde", "local-offset"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gpiocdev = "0.8"
+# Same uAPI crate gpiocdev uses, to match EBUSY on its errors.
+gpiocdev-uapi = "0.7"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = "z"
+panic = "abort"

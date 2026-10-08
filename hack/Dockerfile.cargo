@@ -1,0 +1,10 @@
+# Runs one cargo command against the repo inside the pinned toolchain.
+# Used by hack/cargo.sh; the build context upload avoids host bind mounts.
+FROM rust:1.99-bookworm
+ARG CARGO_ARGS="test"
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/target \
+    rustup component add rustfmt clippy >/dev/null 2>&1; \
+    CARGO_TARGET_DIR=/target cargo ${CARGO_ARGS}

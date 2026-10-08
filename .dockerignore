@@ -1,0 +1,4 @@
+target/
+.local/
+build/_output/
+.git/

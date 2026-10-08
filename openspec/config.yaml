@@ -5,8 +5,10 @@ context: |
   kubesim_base). Blinkt LED simulator for the Raspberry Pi Blinkt hardware (arm).
 
   Build / versioning:
-    - go currently 1.23. Modernize: adopt Go CI, bump go, buildx multi-arch (arm64 primary:
-      Apple-Silicon dev + Pi armv8), add tests. NO base realign (nothing to realign to).
+    - Rust (since port-to-rust; the Go code ended at 0.4.0). Cargo runs in the pinned
+      rust:1.99 container (hack/cargo.sh); images are static musl, buildx multi-arch
+      linux/arm64 + linux/amd64 (arm64 primary: Apple-Silicon dev + Pi armv8).
+      NO base realign (nothing to realign to).
 
 rules:
   spec:
