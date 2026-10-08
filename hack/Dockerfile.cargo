@@ -1,9 +1,10 @@
-# Runs one cargo command against the repo inside the pinned toolchain.
+# Runs one cargo command in rust-blinkt/ inside the pinned toolchain.
 # Used by hack/cargo.sh; the build context upload avoids host bind mounts.
 FROM rust:1.99-bookworm AS cargo
 ARG CARGO_ARGS="test"
 WORKDIR /src
 COPY . .
+WORKDIR /src/rust-blinkt
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/target \
     rustup component add rustfmt clippy >/dev/null 2>&1; \

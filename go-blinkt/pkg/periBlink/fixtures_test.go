@@ -17,7 +17,7 @@ func TestFramesMatchSharedFixtures(t *testing.T) {
 	}
 	for name, set := range cases {
 		t.Run(name, func(t *testing.T) {
-			want, err := os.ReadFile("../../tests/fixtures/" + name)
+			want, err := os.ReadFile("../../../tests/fixtures/" + name)
 			if err != nil {
 				t.Fatal(err)
 			}

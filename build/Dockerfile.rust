@@ -1,4 +1,4 @@
-# Rust implementation (src/): build the blinkt5 binary natively on the build platform and cross-compile a
+# Rust implementation (rust-blinkt/): build the blinkt5 binary natively on the build platform and cross-compile a
 # fully static musl binary for the target (no QEMU emulation): rust-lld links
 # musl's self-contained runtime for both aarch64 and x86_64.
 FROM --platform=$BUILDPLATFORM rust:1.99-bookworm AS builder
@@ -9,8 +9,8 @@ RUN case "$TARGETARCH" in \
       amd64) echo x86_64-unknown-linux-musl ;; \
       *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
     esac > /triple && rustup target add "$(cat /triple)"
-COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY src/ src/
+COPY rust-blinkt/Cargo.toml rust-blinkt/Cargo.lock rust-blinkt/rust-toolchain.toml ./
+COPY rust-blinkt/src/ src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/workspace/target,id=blinkt-target-${TARGETARCH} \
     T="$(cat /triple)" && \

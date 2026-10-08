@@ -11,7 +11,7 @@ import (
 // The Rust port (src/ledstate.rs) reads and rewrites the same fixture, so
 // both implementations agree on the shared state file format.
 func TestStateFixtureRoundTrips(t *testing.T) {
-	data, err := os.ReadFile("../../tests/fixtures/state_go.json")
+	data, err := os.ReadFile("../../../tests/fixtures/state_go.json")
 	if err != nil {
 		t.Fatal(err)
 	}

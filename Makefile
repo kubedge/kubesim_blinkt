@@ -1,7 +1,7 @@
 
 # Two implementations live side by side and build the same /blinkt5 program:
-#   Go   (cmd/, pkg/, go.mod)   -> kubedge1/kubesim_blinkt_go   (default)
-#   Rust (src/, Cargo.toml)     -> kubedge1/kubesim_blinkt_rs
+#   Go   (go-blinkt/)    -> kubedge1/kubesim_blinkt_go   (default)
+#   Rust (rust-blinkt/)  -> kubedge1/kubesim_blinkt_rs
 # The default implementation is also published as kubedge1/kubesim_blinkt.
 # Both are checked against tests/fixtures and against each other (make interop).
 #
@@ -47,7 +47,7 @@ test: rust-test go-test dra-test
 lint: rust-lint go-lint dra-lint
 fmt: rust-fmt go-fmt
 
-# Rust: cargo runs in the pinned toolchain container (hack/cargo.sh), so no
+# Rust (rust-blinkt/): cargo runs in the pinned toolchain container (hack/cargo.sh), so no
 # local Rust install is needed; colima/docker with buildx is.
 rust-test:
 	hack/cargo.sh test
@@ -59,16 +59,16 @@ rust-lint:
 rust-fmt:
 	hack/fmt.sh
 
-# Go: uses the local go toolchain (go.mod: go 1.23).
+# Go: uses the local go toolchain (go-blinkt/go.mod: go 1.26).
 go-test:
-	go test -race ./cmd/... ./pkg/...
+	cd go-blinkt && go test -race ./...
 
 go-lint:
-	@test -z "$$(gofmt -l cmd pkg)" || { gofmt -l cmd pkg; echo "gofmt: files above need formatting"; exit 1; }
-	go vet ./cmd/... ./pkg/...
+	@test -z "$$(gofmt -l go-blinkt)" || { gofmt -l go-blinkt; echo "gofmt: files above need formatting"; exit 1; }
+	cd go-blinkt && go vet ./...
 
 go-fmt:
-	gofmt -w cmd pkg
+	gofmt -w go-blinkt
 
 # DRA driver blinkt.kubedge.io (dra-driver/, its own Go module)
 DRA_REPO ?= ${DOCKER_NAMESPACE}/blinkt-dra-driver
@@ -93,7 +93,7 @@ interop:
 	hack/interop/check.sh
 
 clean:
-	rm -fr target build/_output
+	rm -fr target rust-blinkt/target build/_output
 
 # Both Dockerfiles build on $$BUILDPLATFORM and cross-compile static binaries,
 # so no per-arch emulation is needed. arm/v7 is retired: every Pi now runs arm64.

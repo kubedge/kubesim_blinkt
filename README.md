@@ -42,12 +42,23 @@ BLINKT_CONFIG=./blinkt.yaml BLINKT_STATE_DIR=/tmp/blinkt ./blinkt5   # user in g
 
 ## Develop
 
+```
+go-blinkt/       Go implementation of blinkt5 (module github.com/kubedge/kubesim_blinkt/go-blinkt)
+rust-blinkt/     Rust implementation of blinkt5 (crate kubesim_blinkt)
+dra-driver/      DRA driver blinkt.kubedge.io (module github.com/kubedge/kubesim_blinkt/dra-driver)
+tests/fixtures/  golden frames + state file both implementations are tested against
+build/           Dockerfiles (golang, rust) and CA bundle
+hack/            container-run cargo/fmt and the Go<->Rust interop check
+deploy/ charts/  standalone DaemonSet manifest and Helm chart
+openspec/        specs and changes
+```
+
 Two implementations of the same program live side by side and build the same `/blinkt5` image:
 
 | | Go (default) | Rust |
 |---|---|---|
-| Source | `go.mod`, `cmd/`, `pkg/` | `Cargo.toml`, `src/` |
-| Toolchain | local `go` (go.mod: 1.26) | pinned `rust:1.99` container (`hack/cargo.sh`), no local Rust needed |
+| Source | `go-blinkt/` (`go.mod`, `cmd/`, `pkg/`) | `rust-blinkt/` (`Cargo.toml`, `src/`, `examples/`) |
+| Toolchain | local `go` (go-blinkt/go.mod: 1.26) | pinned `rust:1.99` container (`hack/cargo.sh`), no local Rust needed |
 | Dockerfile | `build/Dockerfile.golang` | `build/Dockerfile.rust` |
 | Image | `kubedge1/kubesim_blinkt_go:<version>`, also published as `kubedge1/kubesim_blinkt:<version>` | `kubedge1/kubesim_blinkt_rs:<version>` |
 

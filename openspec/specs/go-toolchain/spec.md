@@ -7,10 +7,10 @@ release, so the Go implementation and the DRA driver build and test the same way
 ## Requirements
 
 ### Requirement: Go modules target one supported Go release
-Both Go modules, the root module (Go implementation of blinkt5) and `dra-driver/`, SHALL declare the same `go` directive, and it SHALL be a Go release still supported upstream (one of the two newest).
+Both Go modules, `go-blinkt/` (Go implementation of blinkt5) and `dra-driver/`, SHALL declare the same `go` directive, and it SHALL be a Go release still supported upstream (one of the two newest).
 
 #### Scenario: Modules agree
-- **WHEN** the `go` directives of `go.mod` and `dra-driver/go.mod` are compared
+- **WHEN** the `go` directives of `go-blinkt/go.mod` and `dra-driver/go.mod` are compared
 - **THEN** they name the same release, currently `1.26.0`
 
 #### Scenario: Both modules stay green
@@ -22,4 +22,4 @@ Every Dockerfile that compiles Go code SHALL use a `golang` builder image of the
 
 #### Scenario: Builder images match
 - **WHEN** the `FROM golang:` lines of `build/Dockerfile.golang`, `hack/interop/Dockerfile` and `dra-driver/Dockerfile` are listed
-- **THEN** each names the release declared in `go.mod`
+- **THEN** each names the release declared in `go-blinkt/go.mod`
