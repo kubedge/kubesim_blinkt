@@ -26,9 +26,9 @@
 ## 5. Build and image
 
 - [x] 5.1 Switch `build/Dockerfile.buildkit` to the cargo-zigbuild musl cross-build and update Makefile targets (`fmt`, `lint`, `test`, `docker-buildx`). Verify `docker buildx build --platform linux/arm64,linux/amd64` succeeds without pushing, and the arm64 image smoke-run prints `blinkt: GPIO setup failed`.
-- [x] 5.2 Remove the Go sources, `go.mod` and `go.sum`, and mark `go-version-bump`, `adopt-go-ci` and `test-coverage-uplift` as superseded. Verify `cargo test` and the image build still pass with no Go files left.
+- [x] 5.2 Keep the Go implementation side by side (amended 2026-10-08; the first pass removed it). `build/Dockerfile.golang` and `make docker-buildx` (Go is the default; Rust is `IMPL=rust`) build it, `go-test` and `go-lint` check it, Go tests read the shared `tests/fixtures`, and interop builds both from the tree. Remove only the Go-only legacy build (arm32v7/arm64v8 Dockerfiles, Travis). Verify `make test lint interop` passes and `make docker-buildx-check` (Go) and `IMPL=rust` both build.
 
 ## 6. Hardware and release
 
 - [x] 6.1 Hardware test on a Pi 3 (home-pi): the Rust binary alone (8-colour pattern), then Rust plus Go 0.4.0 sharing LEDs (the 4-phase shared test). Verify the operator confirms each phase and there are no GPIO errors.
-- [ ] 6.2 Publish `kubedge1/kubesim_blinkt:0.5.0` via `make docker-buildx`. Verify `imagetools inspect` shows linux/arm64 and linux/amd64, and an anonymous pull works.
+- [x] 6.2 Publish `kubedge1/kubesim_blinkt:0.5.0` via `make docker-buildx`. Verify `imagetools inspect` shows linux/arm64 and linux/amd64, and an anonymous pull works.

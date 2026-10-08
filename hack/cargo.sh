@@ -4,6 +4,6 @@
 # Goes through `docker buildx build` so it works without host bind mounts (colima).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-exec docker buildx build --no-cache-filter=0 --progress=plain -f hack/Dockerfile.cargo \
+exec docker buildx build --no-cache-filter=cargo --progress=plain -f hack/Dockerfile.cargo \
   --build-arg "CARGO_ARGS=$*" --output type=cacheonly . 2>&1 \
   | sed -n 's/^#[0-9]* [0-9.]* //p'

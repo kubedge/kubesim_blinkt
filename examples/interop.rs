@@ -1,6 +1,6 @@
 //! Publishes or withdraws one owner's pixel through `ledstate` with a
 //! recording renderer that prints each drawn frame as JSON. Used by
-//! hack/interop to check Rust and Go 0.4.x share state correctly.
+//! hack/interop to check the Rust and Go implementations share state correctly.
 //!
 //! interop <dir> <owner> publish <index> <r> <g> <b> [count]
 //! interop <dir> <owner> withdraw

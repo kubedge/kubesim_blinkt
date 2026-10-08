@@ -1,7 +1,5 @@
 # Bump the Go toolchain
 
-> **Superseded** by `port-to-rust` (2026-10-08): the Go code this change targeted was replaced by the Rust crate. Rust CI and test coverage would need a fresh proposal. Archive or delete this change.
-
 ## Why
 
 The sim base modules are on `go 1.20` and the consumers span `go 1.15`–`1.20` — well
