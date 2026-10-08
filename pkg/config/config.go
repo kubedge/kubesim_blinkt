@@ -20,7 +20,19 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"os"
 )
+
+// DefaultPath is where the Helm chart mounts the config; BLINKT_CONFIG overrides it.
+const DefaultPath = "/etc/kubedge/blinkt_conf.yaml"
+
+// Path returns the config file location.
+func Path() string {
+	if p := os.Getenv("BLINKT_CONFIG"); p != "" {
+		return p
+	}
+	return DefaultPath
+}
 
 type BlinktConfigData struct {
 	Algorithm string `yaml:"algorithm"`
@@ -38,7 +50,7 @@ type BlinktConfigData struct {
 
 func (config *BlinktConfigData) Config() {
 
-	yamlFile, err := ioutil.ReadFile("/etc/kubedge/blinkt_conf.yaml")
+	yamlFile, err := ioutil.ReadFile(Path())
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
 	}
