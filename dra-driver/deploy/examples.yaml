@@ -1,0 +1,68 @@
+# Example claims for blinkt.kubedge.io. A pod using one gets /dev/gpiochip0,
+# the shared LED state at /run/blinkt, BLINKT_STATE_DIR and BLINKT_PIXELS,
+# with no privileged securityContext and no hostPath.
+---
+# A specific LED: pixel 6, as kubesim_lte uses today.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: blinkt-pixel-6
+spec:
+  spec:
+    devices:
+      requests:
+        - name: led
+          exactly:
+            deviceClassName: blinkt-pixel.kubedge.io
+            selectors:
+              - cel:
+                  expression: device.attributes["blinkt.kubedge.io"].index == 6
+---
+# Any free LED on the node.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: blinkt-any-pixel
+spec:
+  spec:
+    devices:
+      requests:
+        - name: led
+          exactly:
+            deviceClassName: blinkt-pixel.kubedge.io
+---
+# The blinkt program on its allocated pixel, unprivileged.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: blinkt-pixel-6
+spec:
+  containers:
+    - name: blinkt
+      image: docker.io/kubedge1/kubesim_blinkt:0.5.1
+      env:
+        - name: BLINKT_CONFIG
+          value: /config/blinkt_conf.yaml
+      resources:
+        claims:
+          - name: led
+      volumeMounts:
+        - name: config
+          mountPath: /config
+  resourceClaims:
+    - name: led
+      resourceClaimTemplateName: blinkt-pixel-6
+  volumes:
+    - name: config
+      configMap:
+        name: blinkt-pixel-6
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blinkt-pixel-6
+data:
+  blinkt_conf.yaml: |
+    algorithm: fixed5
+    intensity: 5
+    pixel6: [0, 0, 255]

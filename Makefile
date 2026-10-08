@@ -9,6 +9,7 @@
 #   make docker-buildx                 push the Go image (IMPL=go, default) + kubesim_blinkt
 #   make docker-buildx IMPL=rust       push the Rust image
 #   make docker-buildx-all             push both
+#   make dra-buildx                    push the DRA driver image (dra-driver/)
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
@@ -37,12 +38,13 @@ endif
 
 .PHONY: all test lint fmt interop clean \
 	rust-test rust-lint rust-fmt go-test go-lint go-fmt \
+	dra-test dra-lint dra-buildx dra-buildx-check \
 	docker-buildx docker-buildx-all docker-buildx-check deploy undeploy install purge
 
 all: test lint
 
-test: rust-test go-test
-lint: rust-lint go-lint
+test: rust-test go-test dra-test
+lint: rust-lint go-lint dra-lint
 fmt: rust-fmt go-fmt
 
 # Rust: cargo runs in the pinned toolchain container (hack/cargo.sh), so no
@@ -67,6 +69,24 @@ go-lint:
 
 go-fmt:
 	gofmt -w cmd pkg
+
+# DRA driver blinkt.kubedge.io (dra-driver/, its own Go module)
+DRA_REPO ?= ${DOCKER_NAMESPACE}/blinkt-dra-driver
+dra-test:
+	cd dra-driver && go test -race ./...
+
+dra-lint:
+	@test -z "$$(gofmt -l dra-driver)" || { gofmt -l dra-driver; echo "gofmt: files above need formatting"; exit 1; }
+	cd dra-driver && go vet ./...
+
+dra-buildx: dra-test dra-lint ## Build and push the multi-arch DRA driver image
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${DRA_REPO}:${VERSION_V1} -t ${DRA_REPO}:latest \
+	  --label org.opencontainers.image.revision=$$(git rev-parse HEAD) \
+	  --label org.opencontainers.image.source=https://github.com/kubedge/kubesim_blinkt \
+	  dra-driver
+
+dra-buildx-check:
+	$(CONTAINER_TOOL) buildx build --platform=$(PLATFORMS) dra-driver
 
 # Go <-> Rust shared-state interop check, built from this tree
 interop:

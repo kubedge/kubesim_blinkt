@@ -1,0 +1,140 @@
+# DRA driver blinkt.kubedge.io: publishes each Pi's Blinkt! LEDs as devices
+# pixel-0..pixel-7 (attributes index, model) and prepares claims via CDI.
+# Needs Kubernetes >= 1.34 (resource.k8s.io/v1) and CDI enabled in containerd.
+#
+#   kubectl apply -f deploy/blinkt-dra-driver.yaml
+#
+# Success in each driver pod's log:
+#   "blinkt-dra: registered driver=blinkt.kubedge.io node=<node>"
+#   "blinkt-dra: published devices=8 node=<node> chip=gpiochip0"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blinkt-dra
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: blinkt-dra-driver
+  namespace: blinkt-dra
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: blinkt-dra-driver
+rules:
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceslices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: blinkt-dra-driver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: blinkt-dra-driver
+subjects:
+  - kind: ServiceAccount
+    name: blinkt-dra-driver
+    namespace: blinkt-dra
+---
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: blinkt-pixel.kubedge.io
+spec:
+  selectors:
+    - cel:
+        expression: device.driver == "blinkt.kubedge.io"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: blinkt-dra-driver
+  namespace: blinkt-dra
+  labels:
+    app.kubernetes.io/name: blinkt-dra-driver
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: blinkt-dra-driver
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: blinkt-dra-driver
+    spec:
+      serviceAccountName: blinkt-dra-driver
+      priorityClassName: system-node-critical
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: plugin
+          image: docker.io/kubedge1/blinkt-dra-driver:0.5.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --state-dir=/etc/kubedge
+            - --cdi-dir=/var/run/cdi
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            # The plugin creates sockets the kubelet connects to, writes CDI
+            # specs on the host, and reads GPIO line names. Workload
+            # containers using claims need none of this.
+            privileged: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: plugins-registry
+              mountPath: /var/lib/kubelet/plugins_registry
+            - name: plugins
+              mountPath: /var/lib/kubelet/plugins
+            - name: cdi
+              mountPath: /var/run/cdi
+            - name: dev
+              mountPath: /dev
+            # Not read by the driver: mounting it with DirectoryOrCreate makes
+            # sure the shared LED state directory that claims bind-mount at
+            # /run/blinkt exists on the node.
+            - name: state
+              mountPath: /etc/kubedge
+              readOnly: true
+      volumes:
+        - name: plugins-registry
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+        - name: plugins
+          hostPath:
+            path: /var/lib/kubelet/plugins
+        - name: cdi
+          hostPath:
+            path: /var/run/cdi
+            type: DirectoryOrCreate
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: state
+          hostPath:
+            path: /etc/kubedge
+            type: DirectoryOrCreate

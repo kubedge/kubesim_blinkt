@@ -28,11 +28,12 @@ fn publish(board: &mut Board, px: &BTreeMap<usize, Pixel>) {
     }
 }
 
-fn blinkt5(running: &AtomicBool, board: &mut Board) {
+/// Sets random colours on random pixels among those this process owns.
+fn blinkt5(running: &AtomicBool, board: &mut Board, owned: &[usize]) {
     let mut px = BTreeMap::new();
     while running.load(Ordering::SeqCst) {
         px.insert(
-            fastrand::usize(0..8),
+            owned[fastrand::usize(0..owned.len())],
             Pixel {
                 r: fastrand::i64(0..256),
                 g: fastrand::i64(0..256),
@@ -45,11 +46,15 @@ fn blinkt5(running: &AtomicBool, board: &mut Board) {
     }
 }
 
-fn fixed5(running: &AtomicBool, board: &mut Board, conf: &BlinktConfig) {
-    let on = conf.pixels();
+fn fixed5(
+    running: &AtomicBool,
+    board: &mut Board,
+    conf: &BlinktConfig,
+    on: &BTreeMap<usize, Pixel>,
+) {
     let off = BTreeMap::new();
     while running.load(Ordering::SeqCst) {
-        publish(board, &on);
+        publish(board, on);
         delay(conf.frequency);
         publish(board, &off);
         delay(dark_delay(conf));
@@ -91,6 +96,15 @@ fn main() {
     if conf.frequency <= 0 {
         conf.frequency = DEFAULT_FREQUENCY;
     }
+    // A DRA claim says which pixels this process owns.
+    let (alloc, on) = match std::env::var("BLINKT_PIXELS") {
+        Ok(v) => {
+            let alloc = config::parse_pixels(&v).unwrap_or_else(|e| fatal(&format!("blinkt: {e}")));
+            let on = config::allocate(&conf.pixels(), &alloc);
+            (alloc, on)
+        }
+        Err(_) => ((0..8).collect(), conf.pixels()),
+    };
 
     // Draw one merged frame, holding the GPIO lines only for that frame.
     let draw = move |f: &Frame| -> Result<(), kubesim_blinkt::ledstate::Error> {
@@ -105,9 +119,9 @@ fn main() {
     log(&running_line(&conf, &path, &me, board.solo_reason(), &dir));
 
     if conf.algorithm == "blinkt5" {
-        blinkt5(&running, &mut board);
+        blinkt5(&running, &mut board, &alloc);
     } else {
-        fixed5(&running, &mut board, &conf);
+        fixed5(&running, &mut board, &conf, &on);
     }
     println!("Stopping");
     // Turn off only this process's LEDs; others on the node keep theirs.

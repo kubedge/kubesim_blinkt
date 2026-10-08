@@ -100,6 +100,32 @@ impl BlinktConfig {
     }
 }
 
+/// Parses BLINKT_PIXELS, the LED indices a DRA claim allocated (e.g. "6" or
+/// "0,1,2"). Each must be an integer from 0 to 7; the error is the message
+/// logged after `blinkt: `.
+pub fn parse_pixels(v: &str) -> Result<Vec<usize>, String> {
+    let invalid = || format!("invalid BLINKT_PIXELS: {v}");
+    if v.trim().is_empty() {
+        return Err(invalid());
+    }
+    v.split(',')
+        .map(|f| match f.trim().parse::<usize>() {
+            Ok(n) if n < 8 => Ok(n),
+            _ => Err(invalid()),
+        })
+        .collect()
+}
+
+/// Maps each allocated index to the pixel configured for that index,
+/// otherwise to the first configured pixel in index order.
+pub fn allocate(configured: &BTreeMap<usize, Pixel>, alloc: &[usize]) -> BTreeMap<usize, Pixel> {
+    let first = configured.values().next().copied();
+    alloc
+        .iter()
+        .filter_map(|i| configured.get(i).copied().or(first).map(|p| (*i, p)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,6 +186,44 @@ mod tests {
         assert!(
             matches!(&err, ConfigError::Read(m) if m.starts_with("open /nonexistent/blinkt.yaml: "))
         );
+    }
+
+    #[test]
+    fn parse_pixels_valid_and_invalid() {
+        assert_eq!(parse_pixels("6"), Ok(vec![6]));
+        assert_eq!(parse_pixels("0,1,2,3,4,5,6,7"), Ok((0..8).collect()));
+        assert_eq!(parse_pixels(" 2 , 4"), Ok(vec![2, 4]));
+        for bad in ["", "9", "-1", "a", "1,,2"] {
+            assert_eq!(
+                parse_pixels(bad),
+                Err(format!("invalid BLINKT_PIXELS: {bad}"))
+            );
+        }
+    }
+
+    #[test]
+    fn allocate_uses_same_index_or_first_colour() {
+        let blue = Pixel {
+            r: 0,
+            g: 0,
+            b: 255,
+            l: 5,
+        };
+        let green = Pixel {
+            r: 0,
+            g: 255,
+            b: 0,
+            l: 5,
+        };
+        let conf = BTreeMap::from([(6, blue)]);
+        assert_eq!(allocate(&conf, &[6]), BTreeMap::from([(6, blue)]));
+        assert_eq!(allocate(&conf, &[2]), BTreeMap::from([(2, blue)]));
+        let two = BTreeMap::from([(6, blue), (4, green)]);
+        assert_eq!(
+            allocate(&two, &[1, 6]),
+            BTreeMap::from([(1, green), (6, blue)])
+        );
+        assert!(allocate(&BTreeMap::new(), &[1]).is_empty());
     }
 
     #[test]
