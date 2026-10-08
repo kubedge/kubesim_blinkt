@@ -1,91 +1,64 @@
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.4.0
+VERSION_V1       ?= 0.5.0
 DHUBREPO         ?= kubedge1/${COMPONENT}
-DHUBREPO_ARM32V7 ?= kubedge1/${COMPONENT}-arm32v7
-DHUBREPO_ARM64V8 ?= kubedge1/${COMPONENT}-arm64v8
 DOCKER_NAMESPACE ?= kubedge1
 IMG              ?= ${DHUBREPO}:${VERSION_V1}
-IMG_ARM32V7      ?= ${DHUBREPO_ARM32V7}:${VERSION_V1}
-IMG_ARM64V8      ?= ${DHUBREPO_ARM64V8}:${VERSION_V1}
 K8S_NAMESPACE    ?= default
 
-all: docker-build
+# Cargo runs in the pinned Rust toolchain container (hack/cargo.sh), so no
+# local Rust install is needed; colima/docker with buildx is.
+all: test lint
 
-setup:
-ifndef GOPATH
-	$(error GOPATH not defined, please define GOPATH. Run "go help gopath" to learn more about GOPATH)
-endif
-	# dep ensure
+# Format the crate (writes back to src/ and refreshes Cargo.lock)
+fmt:
+	hack/fmt.sh
+
+# Lint: rustfmt check + clippy with warnings denied
+lint:
+	hack/cargo.sh fmt --check
+	hack/cargo.sh clippy --all-targets -- -D warnings
+
+# Unit tests (linux, host arch)
+test:
+	hack/cargo.sh test
+
+# Go 0.4.x <-> Rust shared-state interop check
+interop:
+	hack/interop/check.sh
 
 clean:
-	rm -fr build/_output
-	rm -fr config/crds
-	rm -fr go.sum
+	rm -fr target build/_output
 
-# Run go fmt against code
-fmt: setup
-	go fmt ./pkg/... ./cmd/...
-
-# Run go vet against code
-vet-v1: fmt
-	go vet -composites=false -tags=v1 ./pkg/... ./cmd/...
-
-# Build the docker image
-docker-build: fmt vet-v1 docker-build-arm32v7 docker-build-arm64v8
-
-docker-build-arm32v7:
-	GOOS=linux GOARM=7 GOARCH=arm CGO_ENABLED=0 go build -o build/_output/arm32v7/blinkt5 -gcflags all=-trimpath=${GOPATH} -asmflags all=-trimpath=${GOPATH} -tags=v1 ./cmd/...
-	docker build . -f build/Dockerfile.arm32v7 -t ${IMG_ARM32V7}
-	docker tag ${IMG_ARM32V7} ${DHUBREPO_ARM32V7}:latest
-
-docker-build-arm64v8:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/_output/arm64v8/blinkt5 -gcflags all=-trimpath=${GOPATH} -asmflags all=-trimpath=${GOPATH} -tags=v1 ./cmd/...
-	docker build . -f build/Dockerfile.arm64v8 -t ${IMG_ARM64V8}
-	docker tag ${IMG_ARM64V8} ${DHUBREPO_ARM64V8}:latest
-
-# build/Dockerfile.buildkit pins the builder to $$BUILDPLATFORM and cross-compiles
-# (CGO_ENABLED=0, GOARCH=$$TARGETARCH), so no per-arch emulation is needed.
-# arm/v7 is retired: every Pi now runs arm64. Requires a live buildx builder
-# (e.g. `colima start`). buildx cannot --load a manifest list, so this pushes.
+# build/Dockerfile.buildkit builds on $$BUILDPLATFORM and cross-compiles static
+# musl binaries, so no per-arch emulation is needed. arm/v7 is retired: every
+# Pi now runs arm64. Requires a live buildx builder (e.g. `colima start`).
+# buildx cannot --load a manifest list, so this pushes.
 PLATFORMS ?= linux/arm64,linux/amd64
-.PHONY: docker-buildx
-docker-buildx: fmt vet-v1 ## Build and push the multi-arch image
+.PHONY: all fmt lint test interop clean docker-buildx docker-buildx-check deploy undeploy install purge
+docker-buildx: test lint ## Build and push the multi-arch image
 	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${IMG} -t ${DHUBREPO}:latest -f build/Dockerfile.buildkit .
 
-# Push the docker image
-docker-push: docker-push-arm32v7 docker-push-arm64v8
+# Same multi-arch build without pushing
+docker-buildx-check:
+	$(CONTAINER_TOOL) buildx build --platform=$(PLATFORMS) -f build/Dockerfile.buildkit .
 
-docker-push-arm32v7:
-	docker push ${IMG_ARM32V7}
+# Helm 3 install of the standalone chart against ~/.kube/config
+install:
+	helm install blinkt5 charts/kubesim-blinkt --set image.repository=${DHUBREPO},image.tag=${VERSION_V1} --namespace ${K8S_NAMESPACE}
 
-docker-push-arm64v8:
-	docker push ${IMG_ARM64V8}
-
-# Run against the configured Kubernetes cluster in ~/.kube/config
-install: install-arm32v7
-
-install-arm32v7:
-	helm install --name blinkt5 chart --set images.tags.operator=${IMG_ARM32V7},images.pull_policy=Always --namespace ${K8S_NAMESPACE}
-
-install-arm64v8:
-	helm install --name blinkt5 chart --set images.tags.operator=${IMG_ARM64V8},images.pull_policy=Always --namespace ${K8S_NAMESPACE}
-
-purge: setup
-	helm delete --purge blinkt5
+purge:
+	helm uninstall blinkt5 --namespace ${K8S_NAMESPACE}
 
 # Plain manifests (no Helm). Label each Blinkt! node first:
 #   kubectl label node <node> blinktInstalled=true
-.PHONY: deploy undeploy
 deploy:
 	kubectl apply -f deploy/kubesim-blinkt.yaml
 
 undeploy:
 	kubectl delete -f deploy/kubesim-blinkt.yaml
 
-# Build the docker image for cross-plaform support
 CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
-

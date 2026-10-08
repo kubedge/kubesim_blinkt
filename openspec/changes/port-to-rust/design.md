@@ -32,9 +32,11 @@ It ships as a static binary `/blinkt5` in a `FROM scratch` image, built by `buil
 
 ## Decisions
 
-### D1. Single binary crate, modules mirroring the Go packages
+### D1. Single crate (library + `blinkt5` binary), modules mirroring the Go packages
 Layout: `Cargo.toml` at repo root; `src/main.rs` (runtime), `src/config.rs`, `src/led_output.rs`,
-`src/ledstate.rs`. The binary name is `blinkt5`.
+`src/ledstate.rs`, plus `src/runtime.rs` and `src/logger.rs`. The binary name is `blinkt5`.
+- As implemented: the modules are exposed through `src/lib.rs`, so the interop helper
+  (`examples/interop.rs`) can drive `ledstate` without GPIO. It's still one crate.
 - Why: a 1:1 mapping makes parity review a side-by-side read, and keeps tests in the same place as in Go.
 - Alternative: a workspace with a library crate. Rejected because nothing else consumes it yet. The
   `dra-blinkt-driver` change may later want `ledstate` as a library, and splitting then is cheap.
@@ -76,12 +78,18 @@ by name, request it as an output, set its value, release it on drop.
 - **Fatal paths:** exit with status 1 after logging.
 - **Randomness:** `fastrand`; the blinkt5 pattern only needs to be random, not reproducible.
 
-### D6. Build: cross-compile to musl with `cargo-zigbuild`
-`build/Dockerfile.buildkit` builder stage: `FROM --platform=$BUILDPLATFORM rust:<stable>` with `cargo-zigbuild`
-and zig. It maps `TARGETARCH` to `aarch64-unknown-linux-musl` or `x86_64-unknown-linux-musl`, builds
-`--release`, and copies the binary to `/blinkt5` in `FROM scratch`.
+### D6. Build: cross-compile to static musl on the build platform
+`build/Dockerfile.buildkit` builder stage: `FROM --platform=$BUILDPLATFORM rust:1.99-bookworm`. It maps
+`TARGETARCH` to `aarch64-unknown-linux-musl` or `x86_64-unknown-linux-musl`, and links with Rust's bundled
+`rust-lld` against musl's self-contained runtime (`-C linker=rust-lld -C target-feature=+crt-static`). It
+builds `--release --locked` and copies the binary to `/blinkt5` in `FROM scratch`.
+- As implemented: `cargo-zigbuild` turned out unnecessary, since `rust-lld` links both targets directly.
+  Output: statically linked aarch64 (535 KB image) and static-pie x86_64 binaries.
+- Local development: cargo runs in the same toolchain container via `hack/cargo.sh` (a `docker buildx`
+  invocation, since colima does not share this volume for bind mounts).
 - Why: native toolchain, no QEMU, fully static output, one Dockerfile for both arches.
 - Alternatives:
+  - `cargo-zigbuild` + zig: the original plan; an extra toolchain that wasn't needed.
   - `cross`: needs Docker-in-Docker.
   - Per-arch `rust:alpine` under emulation: the QEMU crash class seen on 2026-10-08.
 - `make docker-buildx` keeps its interface: same `IMG`, `PLATFORMS` and tags.

@@ -1,0 +1,10 @@
+# Formats the crate, refreshes Cargo.lock, and exports both back to the host (hack/fmt.sh).
+FROM rust:1.99-bookworm AS fmt
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    rustup component add rustfmt >/dev/null 2>&1 && cargo fmt && cargo fetch
+FROM scratch
+COPY --from=fmt /src/src /src
+COPY --from=fmt /src/examples /examples
+COPY --from=fmt /src/Cargo.lock /Cargo.lock
