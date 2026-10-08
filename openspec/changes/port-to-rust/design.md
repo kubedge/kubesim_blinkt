@@ -24,6 +24,7 @@ It ships as a static binary `/blinkt5` in a `FROM scratch` image, built by `buil
 - Go 0.4.x and Rust processes coexist on one node during migration.
 - Static, dependency-free binaries for `aarch64` and `x86_64` Linux. The image stays `FROM scratch`.
 - Port the Go unit tests one-for-one, plus an interop test against the Go build.
+- Keep the Go implementation buildable side by side (`IMPL=go`), with the Rust image as the default.
 
 **Non-Goals:**
 - No new behaviour: no DRA, no new algorithms, no API server.
@@ -95,7 +96,7 @@ builds `--release --locked` and copies the binary to `/blinkt5` in `FROM scratch
 - `make docker-buildx` keeps its interface: same `IMG`, `PLATFORMS` and tags.
 
 ### D7. Verification against the Go build before Go is deleted
-- Interop test: both full binaries exit at the GPIO check off-Pi, so interop runs at the state-library level.
+- Interop test (`make interop`): both full binaries exit at the GPIO check off-Pi, so interop runs at the state-library level.
   A small Go test program (Go `ledstate` with a recording renderer) and a Rust integration test publish into
   the same temp state directory. The test then asserts both entries persist, the merged frame matches, and
   withdrawing either keeps the other. Fixtures written by each side are also read by the other.
@@ -113,8 +114,9 @@ builds `--release --locked` and copies the binary to `/blinkt5` in `FROM scratch
   tests on both start-up lines.
 - [Binary size grows versus Go's 2.2 MB image] → acceptable; the release profile uses `lto`, `strip` and
   `opt-level="z"` if needed.
-- [Two languages in the repo during migration] → Go is removed in the same change once parity tasks pass; no
-  long-lived dual build.
+- [Two implementations drift apart] → both are kept on purpose (operator decision). Shared golden fixtures
+  are checked by both test suites, and `make interop` builds both from the tree and runs them on one state
+  directory. A behaviour change must update the specs, the fixtures and both implementations.
 
 ## Migration Plan
 

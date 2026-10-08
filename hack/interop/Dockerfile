@@ -1,13 +1,11 @@
 # syntax=docker/dockerfile:1.7
-# Go 0.4.x <-> Rust shared-state interop check (port-to-rust task 3.3).
-# The Go side is built from GitHub at the last Go release, so this keeps
-# working after the Go sources leave this repo. Run: hack/interop/check.sh
-# Last Go release (0.4.0): main @ 0c6ebcc.
-ARG GO_REF=0c6ebcc5d31318a9f8d05f83b054765040cbe1b6
+# Go <-> Rust shared-state interop check: builds both implementations from
+# this tree and runs them against one state directory. Run: make interop
 FROM golang:1.23-bookworm AS go
-ARG GO_REF
-ADD https://github.com/kubedge/kubesim_blinkt.git#${GO_REF} /gosrc
 WORKDIR /gosrc
+COPY go.mod go.sum ./
+COPY cmd/ cmd/
+COPY pkg/ pkg/
 RUN mkdir -p cmd/interop && cat > cmd/interop/main.go <<'GO'
 package main
 
@@ -53,7 +51,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/target \
     CARGO_TARGET_DIR=/target cargo build --example interop && cp /target/debug/examples/interop /interop-rs
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS check
 RUN apt-get update -qq && apt-get install -y -qq jq >/dev/null
 COPY --from=go /interop-go /usr/local/bin/
 COPY --from=rust /interop-rs /usr/local/bin/

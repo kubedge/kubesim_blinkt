@@ -1,4 +1,4 @@
-# Build the blinkt5 binary natively on the build platform and cross-compile a
+# Rust implementation (src/): build the blinkt5 binary natively on the build platform and cross-compile a
 # fully static musl binary for the target (no QEMU emulation): rust-lld links
 # musl's self-contained runtime for both aarch64 and x86_64.
 FROM --platform=$BUILDPLATFORM rust:1.99-bookworm AS builder

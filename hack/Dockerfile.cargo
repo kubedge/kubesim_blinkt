@@ -1,6 +1,6 @@
 # Runs one cargo command against the repo inside the pinned toolchain.
 # Used by hack/cargo.sh; the build context upload avoids host bind mounts.
-FROM rust:1.99-bookworm
+FROM rust:1.99-bookworm AS cargo
 ARG CARGO_ARGS="test"
 WORKDIR /src
 COPY . .
