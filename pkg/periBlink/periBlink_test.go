@@ -2,7 +2,10 @@ package periBlink
 
 import (
 	"errors"
+	"fmt"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // fakeBus records the data level latched on each rising clock edge.
@@ -126,5 +129,58 @@ func TestSetPixelMasksValues(t *testing.T) {
 	r, g, b, l := GetPixel(2)
 	if r != 5 || g != 255 || b != 300&255 || l != 40&31 {
 		t.Errorf("GetPixel = %d,%d,%d,%d", r, g, b, l)
+	}
+}
+
+func TestSetupRetriesWhileLinesBusy(t *testing.T) {
+	b := &fakeBus{}
+	calls := 0
+	request = func(offset int) (outputPin, string, error) {
+		calls++
+		if calls <= 3 {
+			return nil, "", fmt.Errorf("request line %d: %w", offset, syscall.EBUSY)
+		}
+		if offset == datOffset {
+			return fakeData{b}, "chip:23", nil
+		}
+		return fakeClock{b}, "chip:24", nil
+	}
+	busyRetry = time.Millisecond
+	t.Cleanup(func() {
+		request, busyRetry = requestOutput, 5*time.Millisecond
+		Release()
+	})
+
+	if err := Setup(); err != nil {
+		t.Fatalf("Setup: %v", err)
+	}
+	if Lines() != "data=chip:23 clock=chip:24" {
+		t.Errorf("Lines() = %q", Lines())
+	}
+	if err := Release(); err != nil || gpioSetUp {
+		t.Fatalf("Release: %v, gpioSetUp=%v", err, gpioSetUp)
+	}
+	if b.closed != 2 {
+		t.Errorf("closed %d lines, want 2", b.closed)
+	}
+}
+
+func TestSetupGivesUpWhenBusyTooLong(t *testing.T) {
+	request = func(int) (outputPin, string, error) { return nil, "", syscall.EBUSY }
+	busyRetry, busyTimeout = time.Millisecond, 20*time.Millisecond
+	t.Cleanup(func() { request, busyRetry, busyTimeout = requestOutput, 5*time.Millisecond, 2*time.Second })
+
+	if err := Setup(); !errors.Is(err, syscall.EBUSY) {
+		t.Fatalf("Setup error = %v, want EBUSY", err)
+	}
+}
+
+func TestSetupDoesNotRetryOtherErrors(t *testing.T) {
+	calls := 0
+	request = func(int) (outputPin, string, error) { calls++; return nil, "", syscall.ENOENT }
+	t.Cleanup(func() { request = requestOutput })
+
+	if err := Setup(); !errors.Is(err, syscall.ENOENT) || calls != 1 {
+		t.Fatalf("Setup error = %v after %d calls, want ENOENT after 1", err, calls)
 	}
 }

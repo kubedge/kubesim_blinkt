@@ -13,6 +13,7 @@ package periBlink
 import (
 	"errors"
 	"fmt"
+	"syscall"
 	"time"
 )
 
@@ -55,6 +56,12 @@ var (
 	blinkt      [numPx]Blinkt
 	dat, clk    outputPin
 	lines       string
+
+	// request opens one output line; tests substitute a fake.
+	request = requestOutput
+	// busyTimeout bounds how long Setup waits for lines held by another process.
+	busyTimeout = 2 * time.Second
+	busyRetry   = 5 * time.Millisecond
 )
 
 // Exit clears the LEDs (unless disabled) and releases the GPIO lines.
@@ -64,6 +71,13 @@ func Exit() error {
 		Clear()
 		err = Show()
 	}
+	return errors.Join(err, Release())
+}
+
+// Release gives the GPIO lines back without touching the LEDs, so another
+// process on the node can drive the next frame.
+func Release() error {
+	var err error
 	if dat != nil {
 		err = errors.Join(err, dat.Close())
 	}
@@ -191,11 +205,11 @@ func Setup() error {
 	if gpioSetUp {
 		return nil
 	}
-	d, dDesc, err := requestOutput(datOffset)
+	d, dDesc, err := requestWhileBusy(datOffset)
 	if err != nil {
 		return err
 	}
-	c, cDesc, err := requestOutput(clkOffset)
+	c, cDesc, err := requestWhileBusy(clkOffset)
 	if err != nil {
 		d.Close()
 		return err
@@ -204,6 +218,19 @@ func Setup() error {
 	lines = fmt.Sprintf("data=%s clock=%s", dDesc, cDesc)
 	gpioSetUp = true
 	return nil
+}
+
+// requestWhileBusy retries while another process holds the line (EBUSY):
+// several blinkt sidecars on one node take turns at the lines frame by frame.
+func requestWhileBusy(offset int) (outputPin, string, error) {
+	deadline := time.Now().Add(busyTimeout)
+	for {
+		p, desc, err := request(offset)
+		if err == nil || !errors.Is(err, syscall.EBUSY) || time.Now().After(deadline) {
+			return p, desc, err
+		}
+		time.Sleep(busyRetry)
+	}
 }
 
 // Lines describes the GPIO lines held since Setup, e.g. "data=gpiochip0:23 clock=gpiochip0:24".

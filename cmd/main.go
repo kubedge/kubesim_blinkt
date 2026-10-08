@@ -1,107 +1,113 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"github.com/kubedge/kubesim_blinkt/pkg/config"
-	"github.com/kubedge/kubesim_blinkt/pkg/periBlink"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/kubedge/kubesim_blinkt/pkg/config"
+	"github.com/kubedge/kubesim_blinkt/pkg/ledstate"
+	"github.com/kubedge/kubesim_blinkt/pkg/periBlink"
 )
+
+// defaultFrequency applies when the config omits frequency (the kubesim
+// charts do): without it fixed5 would redraw in a tight loop.
+const defaultFrequency = 1000
 
 func delay(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-// show writes the pixel buffer and aborts on GPIO failure, so a broken
+// draw writes one merged frame. The GPIO lines are held only for the frame,
+// so other blinkt processes on the node can draw theirs.
+func draw(f ledstate.Frame) error {
+	for i, p := range f {
+		periBlink.SetPixel(i, p.R, p.G, p.B, p.L)
+	}
+	if err := periBlink.Setup(); err != nil {
+		return err
+	}
+	return errors.Join(periBlink.Show(), periBlink.Release())
+}
+
+// publish shows this process's pixels and aborts on GPIO failure, so a broken
 // GPIO setup shows up in the pod log instead of as dark LEDs.
-func show() {
-	if err := periBlink.Show(); err != nil {
+func publish(board *ledstate.Board, px map[int]ledstate.Pixel) {
+	if err := board.Publish(px); err != nil {
 		log.Fatalf("blinkt: %v", err)
 	}
 }
 
-func blinkt5(running *bool, conf config.BlinktConfigData) {
-	for *running {
-		pixel := rand.Intn(8)
-		periBlink.SetPixel(pixel, rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(3))
-		show()
+func blinkt5(running *atomic.Bool, board *ledstate.Board, conf config.BlinktConfigData) {
+	px := map[int]ledstate.Pixel{}
+	for running.Load() {
+		px[rand.Intn(8)] = ledstate.Pixel{R: rand.Intn(256), G: rand.Intn(256), B: rand.Intn(256), L: rand.Intn(3)}
+		publish(board, px)
 		delay(60)
 	}
 }
 
-func fixed5(running *bool, conf config.BlinktConfigData) {
-	for *running {
-		if len(conf.Pixel0) != 0 {
-			periBlink.SetPixel(0, conf.Pixel0[0], conf.Pixel0[1], conf.Pixel0[2], conf.Intensity)
+// configPixels returns the pixels this process owns, at the configured intensity.
+func configPixels(conf config.BlinktConfigData) map[int]ledstate.Pixel {
+	px := map[int]ledstate.Pixel{}
+	for i, rgb := range [][]int{conf.Pixel0, conf.Pixel1, conf.Pixel2, conf.Pixel3,
+		conf.Pixel4, conf.Pixel5, conf.Pixel6, conf.Pixel7} {
+		if len(rgb) >= 3 {
+			px[i] = ledstate.Pixel{R: rgb[0], G: rgb[1], B: rgb[2], L: conf.Intensity}
 		}
-		if len(conf.Pixel1) != 0 {
-			periBlink.SetPixel(1, conf.Pixel1[0], conf.Pixel1[1], conf.Pixel1[2], conf.Intensity)
-		}
-		if len(conf.Pixel2) != 0 {
-			periBlink.SetPixel(2, conf.Pixel2[0], conf.Pixel2[1], conf.Pixel2[2], conf.Intensity)
-		}
-		if len(conf.Pixel3) != 0 {
-			periBlink.SetPixel(3, conf.Pixel3[0], conf.Pixel3[1], conf.Pixel3[2], conf.Intensity)
-		}
-		if len(conf.Pixel4) != 0 {
-			periBlink.SetPixel(4, conf.Pixel4[0], conf.Pixel4[1], conf.Pixel4[2], conf.Intensity)
-		}
-		if len(conf.Pixel5) != 0 {
-			periBlink.SetPixel(5, conf.Pixel5[0], conf.Pixel5[1], conf.Pixel5[2], conf.Intensity)
-		}
-		if len(conf.Pixel6) != 0 {
-			periBlink.SetPixel(6, conf.Pixel6[0], conf.Pixel6[1], conf.Pixel6[2], conf.Intensity)
-		}
-		if len(conf.Pixel7) != 0 {
-			periBlink.SetPixel(7, conf.Pixel7[0], conf.Pixel7[1], conf.Pixel7[2], conf.Intensity)
-		}
+	}
+	return px
+}
 
-		show()
+// darkDelay is how long fixed5 leaves its LEDs off between blinks.
+func darkDelay(conf config.BlinktConfigData) int {
+	if conf.Algorithm == "fixed5" {
+		// We only leave the led dark for
+		// a couple of milliseconds
+		return 10
+	}
+	return conf.Frequency
+}
+
+func fixed5(running *atomic.Bool, board *ledstate.Board, conf config.BlinktConfigData) {
+	on := configPixels(conf)
+	off := map[int]ledstate.Pixel{}
+	for running.Load() {
+		publish(board, on)
 		delay(conf.Frequency)
-
-		if len(conf.Pixel0) != 0 {
-			periBlink.SetPixel(0, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel1) != 0 {
-			periBlink.SetPixel(1, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel2) != 0 {
-			periBlink.SetPixel(2, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel3) != 0 {
-			periBlink.SetPixel(3, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel4) != 0 {
-			periBlink.SetPixel(4, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel5) != 0 {
-			periBlink.SetPixel(5, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel6) != 0 {
-			periBlink.SetPixel(6, 0, 0, 0, 0)
-		}
-		if len(conf.Pixel7) != 0 {
-			periBlink.SetPixel(7, 0, 0, 0, 0)
-		}
-
-		show()
-		if conf.Algorithm == "fixed5" {
-			// We only leave the led dark for
-			// a couple of milliseconds
-			delay(10)
-		} else {
-			delay(conf.Frequency)
-		}
-
+		publish(board, off)
+		delay(darkDelay(conf))
 	}
 }
 
+// owner names this process in the shared state: the pod name in Kubernetes.
+func owner() string {
+	if o := os.Getenv("BLINKT_OWNER"); o != "" {
+		return o
+	}
+	if h, err := os.Hostname(); err == nil {
+		return h
+	}
+	return fmt.Sprintf("pid-%d", os.Getpid())
+}
+
+// stateDir is the host directory shared by every blinkt process on the node.
+func stateDir() string {
+	if d, ok := os.LookupEnv("BLINKT_STATE_DIR"); ok {
+		return d
+	}
+	return "/etc/kubedge"
+}
+
 func main() {
-	running := true
+	var running atomic.Bool
+	running.Store(true)
 	// initialise getout
 	signalChannel := make(chan os.Signal, 2)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
@@ -110,35 +116,48 @@ func main() {
 		switch sig {
 		case os.Interrupt:
 			fmt.Println("Stopping on Interrupt")
-			running = false
-			return
 		case syscall.SIGTERM:
 			fmt.Println("Stopping on Terminate")
-			running = false
-			return
 		}
+		running.Store(false)
 	}()
 
+	// Check the GPIO lines once, then hand them back: other blinkt
+	// processes on this node may be drawing.
 	if err := periBlink.Setup(); err != nil {
 		log.Fatalf("blinkt: GPIO setup failed: %v", err)
 	}
-	periBlink.SetLuminance(1)
-	periBlink.Clear()
-	show()
 	log.Printf("blinkt: GPIO ready (%s)", periBlink.Lines())
+	if err := periBlink.Release(); err != nil {
+		log.Fatalf("blinkt: GPIO release failed: %v", err)
+	}
 
 	var conf config.BlinktConfigData
 	conf.Config()
+	if conf.Frequency <= 0 {
+		conf.Frequency = defaultFrequency
+	}
+
+	// An entry outlives a few missed redraws before others stop drawing it.
+	ttl := 3*time.Duration(conf.Frequency+darkDelay(conf))*time.Millisecond + 2*time.Second
+	board, err := ledstate.Open(stateDir(), owner(), ttl, draw)
+	mode := "shared state=" + stateDir()
+	if err != nil {
+		mode = fmt.Sprintf("solo (%v)", err)
+	}
 	// Deploy verification greps for this line.
-	log.Printf("blinkt: running algorithm=%s frequency=%dms config=%s", conf.Algorithm, conf.Frequency, config.Path())
+	log.Printf("blinkt: running algorithm=%s frequency=%dms config=%s owner=%s %s",
+		conf.Algorithm, conf.Frequency, config.Path(), owner(), mode)
 
 	if conf.Algorithm == "blinkt5" {
-		blinkt5(&running, conf)
+		blinkt5(&running, board, conf)
 	} else {
-		fixed5(&running, conf)
+		fixed5(&running, board, conf)
 	}
 	fmt.Println("Stopping")
-	if err := periBlink.Exit(); err != nil {
+	// Turn off only this process's LEDs; others on the node keep theirs.
+	if err := board.Withdraw(); err != nil {
 		log.Printf("blinkt: exit: %v", err)
 	}
+	board.Close()
 }

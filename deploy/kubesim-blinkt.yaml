@@ -3,9 +3,12 @@
 #   kubectl label node <node> blinktInstalled=true
 #   kubectl apply -f deploy/kubesim-blinkt.yaml
 #
-# The pod drives BCM GPIO23/24 through /dev/gpiochip0. The kernel grants a line to
-# one process at a time, so do not run the host binary on a labelled node.
-# Success in the log:  "blinkt: GPIO ready (...)" then "blinkt: running algorithm=..."
+# The pod drives BCM GPIO23/24 through /dev/gpiochip0, holding the lines only while
+# it writes a frame. It shares the LEDs with the blinkt sidecars of the kubesim
+# simulator charts through the host's /etc/kubedge (blinkt.lock + blinkt_state.json):
+# each process draws only its own pixels, merged into one frame.
+# Success in the log:  "blinkt: GPIO ready (...)" then
+#                      "blinkt: running algorithm=... shared state=/etc/kubedge"
 ---
 apiVersion: v1
 kind: Namespace
@@ -18,7 +21,7 @@ metadata:
   name: kubesim-blinkt-config
   namespace: kubesim-blinkt
 data:
-  # Read once at start-up: after editing, run
+  # Read once at start-up (subPath mounts do not refresh): after editing, run
   #   kubectl -n kubesim-blinkt rollout restart daemonset/kubesim-blinkt
   blinkt_conf.yaml: |
     ---
@@ -49,7 +52,7 @@ spec:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      # Delete the old pod before starting the new one: both cannot hold GPIO23/24.
+      # One blinkt per node from this DaemonSet; others share via /etc/kubedge.
       maxSurge: 0
       maxUnavailable: 1
   template:
@@ -68,11 +71,13 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: blinkt
-          image: docker.io/kubedge1/kubesim_blinkt:0.3.0
+          image: docker.io/kubedge1/kubesim_blinkt:0.4.0
           imagePullPolicy: IfNotPresent
           env:
             - name: BLINKT_CONFIG
               value: /etc/kubedge/blinkt_conf.yaml
+            - name: BLINKT_STATE_DIR
+              value: /etc/kubedge
           securityContext:
             # Needed for /dev/gpiochip0: the container runtime only allows host
             # devices into the device cgroup for privileged containers.
@@ -84,10 +89,19 @@ spec:
             limits:
               memory: 32Mi
           volumeMounts:
-            - name: config
+            # Same layout as the simulator charts' blinkt sidecars: the host
+            # directory for shared LED state, with the config file on top.
+            - name: kubedge
               mountPath: /etc/kubedge
+            - name: config
+              mountPath: /etc/kubedge/blinkt_conf.yaml
+              subPath: blinkt_conf.yaml
               readOnly: true
       volumes:
+        - name: kubedge
+          hostPath:
+            path: /etc/kubedge
+            type: DirectoryOrCreate
         - name: config
           configMap:
             name: kubesim-blinkt-config
