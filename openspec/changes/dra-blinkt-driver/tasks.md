@@ -20,7 +20,7 @@
 ## 4. Cluster objects and packaging (`blinkt-pixel-claims`)
 
 - [x] 4.1 Add plain-YAML manifests: the DeviceClass `blinkt-pixel.kubedge.io`, driver RBAC, the driver DaemonSet, and example ResourceClaimTemplates (fixed `index == 6`, any free). The DaemonSet uses an arm64 nodeSelector, the control-plane toleration, host mounts for `/var/lib/kubelet/plugins`, `/var/lib/kubelet/plugins_registry`, `/var/run/cdi` and `/dev`, and a memory limit. Verify `kubeconform -strict -kubernetes-version 1.36.5`.
-- [ ] 4.2 Build and publish the multi-arch `kubedge1/blinkt-dra-driver` image via buildx. Verify `imagetools inspect` shows linux/arm64 and linux/amd64.
+- [x] 4.2 Build and publish the multi-arch `kubedge1/blinkt-dra-driver` image via buildx. Verify `imagetools inspect` shows linux/arm64 and linux/amd64.
 - [x] 4.3 In kind, verify exclusivity and placement: two pods claiming `index == 6` on one node leave the second Pending, and an any-free claim gets a different pixel. Record the commands and output in `dra-driver/README.md`.
 
 ## 5. Blinkt program allocation input (`blinkt-pixel-claims`)
