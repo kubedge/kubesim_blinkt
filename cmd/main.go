@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kubedge/kubesim_blinkt/pkg/config"
 	"github.com/kubedge/kubesim_blinkt/pkg/periBlink"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -15,11 +16,19 @@ func delay(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
+// show writes the pixel buffer and aborts on GPIO failure, so a broken
+// GPIO setup shows up in the pod log instead of as dark LEDs.
+func show() {
+	if err := periBlink.Show(); err != nil {
+		log.Fatalf("blinkt: %v", err)
+	}
+}
+
 func blinkt5(running *bool, conf config.BlinktConfigData) {
 	for *running {
 		pixel := rand.Intn(8)
 		periBlink.SetPixel(pixel, rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(3))
-		periBlink.Show()
+		show()
 		delay(60)
 	}
 }
@@ -51,7 +60,7 @@ func fixed5(running *bool, conf config.BlinktConfigData) {
 			periBlink.SetPixel(7, conf.Pixel7[0], conf.Pixel7[1], conf.Pixel7[2], conf.Intensity)
 		}
 
-		periBlink.Show()
+		show()
 		delay(conf.Frequency)
 
 		if len(conf.Pixel0) != 0 {
@@ -79,7 +88,7 @@ func fixed5(running *bool, conf config.BlinktConfigData) {
 			periBlink.SetPixel(7, 0, 0, 0, 0)
 		}
 
-		periBlink.Show()
+		show()
 		if conf.Algorithm == "fixed5" {
 			// We only leave the led dark for
 			// a couple of milliseconds
@@ -110,10 +119,12 @@ func main() {
 		}
 	}()
 
-	periBlink.Setup()
+	if err := periBlink.Setup(); err != nil {
+		log.Fatalf("blinkt: GPIO setup failed: %v", err)
+	}
 	periBlink.SetLuminance(1)
 	periBlink.Clear()
-	periBlink.Show()
+	show()
 
 	var conf config.BlinktConfigData
 	conf.Config()
@@ -124,5 +135,7 @@ func main() {
 		fixed5(&running, conf)
 	}
 	fmt.Println("Stopping")
-	periBlink.Exit()
+	if err := periBlink.Exit(); err != nil {
+		log.Printf("blinkt: exit: %v", err)
+	}
 }

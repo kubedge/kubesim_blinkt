@@ -1,12 +1,18 @@
 // periBlink.go
 // Rich Robinson
 // Sept 2018
+//
+// Drives a Pimoroni Blinkt! (8 x APA102) by bit-banging BCM GPIO23 (data)
+// and GPIO24 (clock) through the Linux GPIO character device
+// (/dev/gpiochipN). Unlike memory-mapped /dev/gpiomem or sysfs GPIO numbers,
+// this works unchanged on 32 and 64 bit kernels and on kernels that number
+// sysfs GPIOs from 512.
 
 package periBlink
 
 import (
-	"periph.io/x/periph/host"
-	"periph.io/x/periph/host/rpi"
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -19,6 +25,13 @@ const (
 	greenI    = 1
 	blueI     = 2
 	lumI      = 3
+
+	// BCM GPIO lines wired to the Blinkt! header.
+	datOffset = 23
+	clkOffset = 24
+	// Chip used when the kernel does not publish gpio-line-names.
+	defaultChip = "gpiochip0"
+	consumer    = "kubesim_blinkt"
 )
 
 type Pix struct {
@@ -29,18 +42,36 @@ type Blinkt struct {
 	pix [4]int
 }
 
+// outputPin is the subset of *gpiocdev.Line used here; tests substitute a fake.
+type outputPin interface {
+	SetValue(value int) error
+	Close() error
+}
+
 var (
 	gpioSetUp   bool = false
 	clearOnExit bool = true
 	pix         []Pix
 	blinkt      [numPx]Blinkt
+	dat, clk    outputPin
 )
 
-func Exit() {
-	if clearOnExit {
+// Exit clears the LEDs (unless disabled) and releases the GPIO lines.
+func Exit() error {
+	var err error
+	if clearOnExit && gpioSetUp {
 		Clear()
-		Show()
+		err = Show()
 	}
+	if dat != nil {
+		err = errors.Join(err, dat.Close())
+	}
+	if clk != nil {
+		err = errors.Join(err, clk.Close())
+	}
+	dat, clk = nil, nil
+	gpioSetUp = false
+	return err
 }
 
 func SetLuminance(lum int) {
@@ -57,53 +88,72 @@ func Clear() {
 	}
 }
 
-func writeByte(val int) {
+func pulse() error {
+	if err := clk.SetValue(1); err != nil {
+		return fmt.Errorf("periBlink: clock high: %w", err)
+	}
+	if err := clk.SetValue(0); err != nil {
+		return fmt.Errorf("periBlink: clock low: %w", err)
+	}
+	return nil
+}
+
+func writeByte(val int) error {
 	for i := 0; i < 8; i++ {
-		x := val & 128
-		if x == 0 {
-			rpi.P1_16.Out(false)
-		} else {
-			rpi.P1_16.Out(true)
+		if err := dat.SetValue((val >> 7) & 1); err != nil {
+			return fmt.Errorf("periBlink: data: %w", err)
 		}
-		rpi.P1_18.Out(true)
+		if err := pulse(); err != nil {
+			return err
+		}
 		val = val << 1
-		rpi.P1_18.Out(false)
 	}
+	return nil
 }
 
-func eof() {
-	rpi.P1_16.Out(false)
-	for i := 0; i < 36; i++ {
-		rpi.P1_18.Out(true)
-		rpi.P1_18.Out(false)
+func clockZeros(n int) error {
+	if err := dat.SetValue(0); err != nil {
+		return fmt.Errorf("periBlink: data: %w", err)
 	}
+	for i := 0; i < n; i++ {
+		if err := pulse(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func sof() {
-	rpi.P1_16.Out(false)
-	for i := 0; i < 32; i++ {
-		rpi.P1_18.Out(true)
-		rpi.P1_18.Out(false)
-	}
+func eof() error {
+	return clockZeros(36)
 }
 
-func Show() {
-	if gpioSetUp == false {
-		Setup()
+func sof() error {
+	return clockZeros(32)
+}
+
+// Show writes the current pixel buffer to the LEDs.
+func Show() error {
+	if !gpioSetUp {
+		if err := Setup(); err != nil {
+			return err
+		}
 	}
-	sof()
+	if err := sof(); err != nil {
+		return err
+	}
 	for i := range blinkt {
 		r := blinkt[i].pix[redI]
 		g := blinkt[i].pix[greenI]
 		b := blinkt[i].pix[blueI]
 		l := blinkt[i].pix[lumI]
 		bitwise := 224
-		writeByte(bitwise | l)
-		writeByte(b)
-		writeByte(g)
-		writeByte(r)
+		for _, v := range []int{bitwise | l, b, g, r} {
+			if err := writeByte(v); err != nil {
+				return err
+			}
+		}
 	}
-	eof()
+	return eof()
 }
 
 func SetAll(r int, g int, b int, l int) {
@@ -135,7 +185,21 @@ func delay(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func Setup() {
-	host.Init()
+// Setup requests the data and clock lines as outputs.
+func Setup() error {
+	if gpioSetUp {
+		return nil
+	}
+	d, err := requestOutput(datOffset)
+	if err != nil {
+		return err
+	}
+	c, err := requestOutput(clkOffset)
+	if err != nil {
+		d.Close()
+		return err
+	}
+	dat, clk = d, c
 	gpioSetUp = true
+	return nil
 }
