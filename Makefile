@@ -1,7 +1,7 @@
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.3.0
+VERSION_V1       ?= 0.4.0
 DHUBREPO         ?= kubedge1/${COMPONENT}
 DHUBREPO_ARM32V7 ?= kubedge1/${COMPONENT}-arm32v7
 DHUBREPO_ARM64V8 ?= kubedge1/${COMPONENT}-arm64v8
