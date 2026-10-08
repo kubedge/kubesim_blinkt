@@ -14,6 +14,11 @@ one Pi share the strip through a locked state file, and each draws only its own 
 | `BLINKT_CONFIG` | `/etc/kubedge/blinkt_conf.yaml` | YAML config (`algorithm`, `intensity`, `frequency`, `pixel0`…`pixel7`) |
 | `BLINKT_STATE_DIR` | `/etc/kubedge` | Shared state directory (`blinkt.lock`, `blinkt_state.json`); set it empty to run solo |
 | `BLINKT_OWNER` | hostname (pod name) | Name of this process in the shared state |
+| `BLINKT_PIXELS` | unset | LEDs allocated by a DRA claim, e.g. `6` or `0,1,2`. The process lights exactly these, in the colour configured for each index, else the first configured colour. Set by the DRA driver. |
+
+With the DRA driver (`dra-driver/`), a claiming container gets `/dev/gpiochip0`, the shared state at
+`/run/blinkt` (`BLINKT_STATE_DIR=/run/blinkt`) and `BLINKT_PIXELS` through CDI. It needs no
+`privileged` and no hostPath. See [dra-driver/README.md](dra-driver/README.md).
 
 Example config, the kubesim_lte sidecar's:
 

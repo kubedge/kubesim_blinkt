@@ -44,23 +44,27 @@ func publish(board *ledstate.Board, px map[int]ledstate.Pixel) {
 	}
 }
 
-func blinkt5(running *atomic.Bool, board *ledstate.Board, conf config.BlinktConfigData) {
+// blinkt5 sets random colours on random pixels among those it owns.
+func blinkt5(running *atomic.Bool, board *ledstate.Board, owned []int) {
 	px := map[int]ledstate.Pixel{}
 	for running.Load() {
-		px[rand.Intn(8)] = ledstate.Pixel{R: rand.Intn(256), G: rand.Intn(256), B: rand.Intn(256), L: rand.Intn(3)}
+		px[owned[rand.Intn(len(owned))]] = ledstate.Pixel{R: rand.Intn(256), G: rand.Intn(256), B: rand.Intn(256), L: rand.Intn(3)}
 		publish(board, px)
 		delay(60)
 	}
 }
 
-// configPixels returns the pixels this process owns, at the configured intensity.
-func configPixels(conf config.BlinktConfigData) map[int]ledstate.Pixel {
+// ownedPixels returns the pixels this process lights, at the configured
+// intensity: the configured ones, or with a DRA allocation (BLINKT_PIXELS)
+// exactly the allocated ones.
+func ownedPixels(conf config.BlinktConfigData, alloc []int, allocated bool) map[int]ledstate.Pixel {
+	colours := conf.Colours()
+	if allocated {
+		colours = config.Allocate(colours, alloc)
+	}
 	px := map[int]ledstate.Pixel{}
-	for i, rgb := range [][]int{conf.Pixel0, conf.Pixel1, conf.Pixel2, conf.Pixel3,
-		conf.Pixel4, conf.Pixel5, conf.Pixel6, conf.Pixel7} {
-		if len(rgb) >= 3 {
-			px[i] = ledstate.Pixel{R: rgb[0], G: rgb[1], B: rgb[2], L: conf.Intensity}
-		}
+	for i, c := range colours {
+		px[i] = ledstate.Pixel{R: c[0], G: c[1], B: c[2], L: conf.Intensity}
 	}
 	return px
 }
@@ -75,8 +79,7 @@ func darkDelay(conf config.BlinktConfigData) int {
 	return conf.Frequency
 }
 
-func fixed5(running *atomic.Bool, board *ledstate.Board, conf config.BlinktConfigData) {
-	on := configPixels(conf)
+func fixed5(running *atomic.Bool, board *ledstate.Board, conf config.BlinktConfigData, on map[int]ledstate.Pixel) {
 	off := map[int]ledstate.Pixel{}
 	for running.Load() {
 		publish(board, on)
@@ -137,6 +140,15 @@ func main() {
 	if conf.Frequency <= 0 {
 		conf.Frequency = defaultFrequency
 	}
+	// A DRA claim says which pixels this process owns.
+	alloc := []int{0, 1, 2, 3, 4, 5, 6, 7}
+	envPixels, allocated := os.LookupEnv("BLINKT_PIXELS")
+	if allocated {
+		var err error
+		if alloc, err = config.ParsePixels(envPixels); err != nil {
+			log.Fatalf("blinkt: %v", err)
+		}
+	}
 
 	// An entry outlives a few missed redraws before others stop drawing it.
 	ttl := 3*time.Duration(conf.Frequency+darkDelay(conf))*time.Millisecond + 2*time.Second
@@ -150,9 +162,9 @@ func main() {
 		conf.Algorithm, conf.Frequency, config.Path(), owner(), mode)
 
 	if conf.Algorithm == "blinkt5" {
-		blinkt5(&running, board, conf)
+		blinkt5(&running, board, alloc)
 	} else {
-		fixed5(&running, board, conf)
+		fixed5(&running, board, conf, ownedPixels(conf, alloc, allocated))
 	}
 	fmt.Println("Stopping")
 	// Turn off only this process's LEDs; others on the node keep theirs.
