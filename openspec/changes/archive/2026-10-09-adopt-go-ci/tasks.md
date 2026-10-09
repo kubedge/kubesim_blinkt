@@ -16,5 +16,5 @@
 ## 3. Verify
 - [x] 3.1 Push the branch; all code jobs and `secret-scan` green.
 - [x] 3.2 Negative check: a throwaway commit breaking one Go test and one clippy lint turns its job red (then drop it).
-- [ ] 3.3 Docs-only commit skips the code jobs. (A PR is filtered against its base, so this PR always counts as code; verify on the next docs- or spec-only PR, e.g. the archive of this change.)
+- [x] 3.3 Docs-only commit skips the code jobs. Verified on #20 (openspec-only): code jobs skipped, `changes` and `secret-scan` pass.
 - [x] 3.4 README "Develop": one line naming the CI jobs; ask the operator to mark them required on `main`.
