@@ -115,4 +115,77 @@ node, so simulator pods asking for a pixel there stay Pending until it is remove
 
 ## Main tutorials
 
+### Kubernetes demo: replicas you can see
+
+Every replica of `charts/kubesim-blinkt` lights one LED on a Blinkt! in the release colour, so the audience can
+*see* the Deployment work. Each pod claims one LED through DRA, and the blinkt-operator's node agent draws it.
+
+**Before the demo** (once per cluster):
+```sh
+kubectl apply -f blinkt-operator/dist/install.yaml        # operator + node agent
+kubectl label node <pi> blinktInstalled=true               # the Pi(s) with a Blinkt!
+kubectl apply -f - <<'YAML'
+apiVersion: blinkt.kubedge.io/v1alpha1
+kind: BlinktConfig
+metadata: {name: cluster}
+spec: {mode: agent, nodeSelector: {blinktInstalled: "true"}}
+YAML
+kubectl get blinkt          # agent / agent / True, DEVICES = 8 per Pi
+```
+
+**1. Deploy: two pods, two green LEDs**
+```sh
+helm install demo charts/kubesim-blinkt --set blinkt.release=green
+kubectl get pods -l release=demo -o wide
+```
+LEDs: `[G G - - - - - -]`
+
+**2. Scale up: one more pod, one more LED**
+```sh
+kubectl scale deploy/demo-kubesim-blinkt --replicas=3
+```
+LEDs: `[G G G - - - - -]`. Scale back to 2 and one LED goes out.
+
+**3. Rolling upgrade: watch green turn into blue**
+```sh
+helm upgrade demo charts/kubesim-blinkt --set blinkt.release=blue --set replicaCount=3
+kubectl rollout status deploy/demo-kubesim-blinkt
+```
+New pods come up before old ones go (`maxSurge: 1`, `maxUnavailable: 0`), so blue LEDs appear while the green
+ones go out:
+
+`[G G G - …] → [G G G B …] → [G G G B B …] → [G G - B B …] → [G G B B B …] → [G - B B B …] → [- - B B B …]`
+
+**4. Roll back: blue turns back into green**
+```sh
+helm rollback demo
+```
+
+**5. Self-healing: kill a pod**
+```sh
+kubectl delete $(kubectl get pod -l release=demo -o name | head -1)    # one pod
+```
+Its LED goes out when the pod is gone, and lights up again (possibly on another LED) when the Deployment replaces
+it.
+
+**6. Out of resources: a Blinkt! has 8 LEDs**
+```sh
+kubectl scale deploy/demo-kubesim-blinkt --replicas=9        # on a single Pi
+kubectl get pods -l release=demo                             # one pod Pending
+kubectl describe pod <pending-pod> | grep -A3 Events         # cannot allocate all claims
+```
+With several Pis, the scheduler spreads the extra pods to Pis that still have a free LED.
+
+**Clean up**
+```sh
+helm uninstall demo        # all its LEDs go out
+```
+
+Notes:
+- The release colour is `red`, `green` or `blue`. Add `--set blinkt.algorithm=steady` for LEDs that don't blink.
+- Without the operator, `--set blinkt.mode=legacy` runs the original privileged version. There the colour picks a
+  fixed LED (red 0, green 1, blue 2), so replicas on one Pi share that LED.
+
+### Original work
+
 [Original Fork](https://github.com/richrarobi/periBlink)
