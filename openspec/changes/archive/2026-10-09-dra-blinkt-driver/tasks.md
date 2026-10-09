@@ -30,13 +30,13 @@
 
 ## 6. Simulator charts (follow-up PRs in kubesim_5gc, nr, epc, lte, elte)
 
-- [ ] 6.1 Add the `blinkt.mode: legacy|dra` value. `dra` renders the ResourceClaimTemplate with the chart's pixel selector and `resourceClaims`, and drops `privileged` and the hostPath from the sidecar. Verify with `helm template` in both modes (legacy unchanged byte-for-byte) and `kubeconform`.
+- [ ] 6.1 Add the `blinkt.mode: legacy|dra` value. `dra` renders the ResourceClaimTemplate with the chart's pixel selector and `resourceClaims`, and drops `privileged` and the hostPath from the sidecar. Verify with `helm template` in both modes (legacy unchanged byte-for-byte) and `kubeconform`. **Out of scope (2026-10-09):** the simulator charts went straight to DRA agent mode (blinkt-operator 8.1); a chart cdi mode was not built. cdi stays available via blinkt-operator `mode: cdi` and dra-driver/deploy.
 
 ## 7. Hardware rollout (after 1.1 is done)
 
 - [x] 7.1 Deploy the driver on piclustera and verify 8 devices per Pi in its ResourceSlices. **Done 2026-10-09:** via blinkt-operator cdi mode (dra-driver 0.5.2): piclustera home-pi + nas-pi 2×8, piclusterb kube-node01..04 4×8 devices; each pod logged `registered …` / `published devices=8 … chip=gpiochip0`.
-- [ ] 7.2 Deploy kubesim_lte and kubesim_elte in DRA mode on one node. Verify that:
+- [ ] 7.2 Deploy kubesim_lte and kubesim_elte in DRA mode on one node. Verify that: **Out of scope (2026-10-09):** covered for the cdi driver by test pods on piclustera/piclusterb (blinkt-operator kit step 3); the real lte/elte charts run in agent mode instead.
   - both sidecars run unprivileged;
   - pixels 4 and 6 are lit (operator confirmation);
   - deleting one pod turns off only its LED.
-- [ ] 7.3 Verify the mixed mode: one legacy 0.4.x sidecar and one DRA pod on the same node both keep their LEDs lit.
+- [ ] 7.3 Verify the mixed mode: one legacy 0.4.x sidecar and one DRA pod on the same node both keep their LEDs lit. **Out of scope (2026-10-09):** legacy + DRA coexistence was verified in agent mode with legacyCompat (blinkt-operator 7.3), not in cdi mode.
