@@ -1,5 +1,8 @@
 # blinkt-pixel-config Specification
 
+## Summary
+`PixelConfig` is opaque configuration for the `blinkt.kubedge.io` driver, carried in the ResourceClaim. It sets colour, intensity and pattern, so a claim describes its LED completely. Class-level values are defaults that claim-level values override. A configuration that fails validation fails the pod start rather than drawing something unexpected.
+
 ## Purpose
 The per-claim LED configuration for the Blinkt!: which colour, intensity and blink pattern a claimed pixel
 shows. It is carried in the ResourceClaim itself, so a claim fully describes the LED.

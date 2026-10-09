@@ -1,5 +1,8 @@
 # blinkt-operator Specification
 
+## Summary
+The singleton `BlinktConfig` named `cluster` selects `mode: legacy | cdi | agent` and the nodes it covers. The operator deploys the components for that mode: nothing, the DaemonSet DRA driver plus its DeviceClass, or the node agent. It never runs two drivers on one node and steps aside for a foreign one. It refuses to leave a DRA mode while claims are live (`ClaimsInUse`) and reports the active mode, node and device counts in status. The DaemonSet approach in `dra-driver/deploy` still works without the operator.
+
 ## Purpose
 A cluster operator that controls how the Blinkt! is run on a cluster: legacy sidecars, the DaemonSet DRA
 driver (CDI hand-off), or the sole-writer node agent. It is selected and reported through one custom resource.

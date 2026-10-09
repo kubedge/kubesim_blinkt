@@ -1,5 +1,8 @@
 # blinkt-node-agent Specification
 
+## Summary
+In `agent` mode the node agent registers the same `blinkt.kubedge.io` devices as the DaemonSet driver, but it also holds the GPIO lines and is the only process that draws. It rebuilds the strip from the ResourceClaims allocated on its node and their PixelConfig, so prepare and unprepare are only triggers and a restart needs no local state. On shutdown it leaves the strip dark. With `legacyCompat` it writes through the shared state file so legacy sidecars can still draw next to it.
+
 ## Purpose
 The node component of the operator's `agent` mode: a DRA kubelet plugin for `blinkt.kubedge.io` that is the
 only process driving the Blinkt! on its node, and that keeps the strip equal to what the ResourceClaims in the

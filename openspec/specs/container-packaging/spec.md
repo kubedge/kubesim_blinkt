@@ -1,5 +1,8 @@
 # container-packaging Specification
 
+## Summary
+Every image this repo builds (`kubesim_blinkt_go` and `kubesim_blinkt`, `kubesim_blinkt_rs`, `blinkt-dra-driver`, `blinkt-operator`) is one multi-arch manifest for linux/arm64 and linux/amd64, built with docker buildx. The Dockerfiles cross-compile on `$BUILDPLATFORM` into static binaries `FROM scratch`, so no emulation is needed. A node pulls the same name whatever its architecture.
+
 ## Purpose
 How the repo packages its programs: each image (kubesim_blinkt in Go and Rust, and the DRA driver) is one multi-arch image built with docker buildx, so every node pulls the same name whatever its architecture.
 

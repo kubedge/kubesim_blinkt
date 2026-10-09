@@ -1,5 +1,8 @@
 # continuous-integration Specification
 
+## Summary
+`.github/workflows/code.yml` runs the Makefile targets of the local `make test lint` for `go-blinkt`, `dra-driver`, `blinkt-operator` (with envtest) and `rust-blinkt`, plus `make interop` and the four `*-buildx-check` image builds. A docs- or spec-only change skips them, and `code-ok` passes when each code job passed or was skipped. `code-ok` and `secret-scan` are the required checks on `main`. The class-M `ci.yml` from claude-meta stays separate so broadcasts merge cleanly.
+
 ## Purpose
 Gates every change on the same checks as the local `make test lint` for the four code roots (`go-blinkt`,
 `dra-driver`, `blinkt-operator`, `rust-blinkt`), plus the Go <-> Rust interop check and the multi-arch image

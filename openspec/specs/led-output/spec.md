@@ -1,5 +1,8 @@
 # led-output Specification
 
+## Summary
+The Blinkt! is driven by bit-banging two GPIO lines through the Linux GPIO character device (go-gpiocdev in Go, gpiocdev in Rust), found by name (`GPIO23` data, `GPIO24` clock) with a `gpiochip0` fallback. A frame is the APA102 wire format: a 32-bit zero start, `0xE0|luminance`, B, G, R per pixel, then 36 zero bits. Values are masked to the hardware range. The lines are held only while a frame is written, and a busy line (EBUSY) is retried for at most 2 s, which lets several processes share them.
+
 ## Purpose
 Drives the Pimoroni Blinkt! (eight APA102 LEDs) on a Raspberry Pi by bit-banging two GPIO lines through the
 Linux GPIO character device, so it works on 32- and 64-bit kernels without /dev/gpiomem or sysfs numbering.

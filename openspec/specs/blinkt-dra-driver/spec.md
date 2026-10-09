@@ -1,5 +1,8 @@
 # blinkt-dra-driver Specification
 
+## Summary
+The DaemonSet driver `blinkt.kubedge.io` publishes one ResourceSlice per node with eight devices, `pixel-0` to `pixel-7`, each carrying `index` and `model` attributes. Preparing a claim writes a CDI spec that hands the container `/dev/gpiochip0`, the shared state directory at `/run/blinkt` and `BLINKT_PIXELS`. Unpreparing removes exactly what prepare created. The driver is the only privileged component; the workload containers are not.
+
 ## Purpose
 A Kubernetes DRA kubelet-plugin driver that advertises each node's Blinkt! LEDs as allocatable devices and
 gives every allocated claim exactly the device access it needs, with no privileged containers.
