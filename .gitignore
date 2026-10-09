@@ -36,3 +36,6 @@ go.work
 # Rust
 /target/
 /rust-blinkt/target/
+
+# blinkt-operator tool binaries
+/blinkt-operator/bin/

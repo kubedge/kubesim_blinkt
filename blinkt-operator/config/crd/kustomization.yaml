@@ -1,0 +1,2 @@
+resources:
+  - bases/blinkt.kubedge.io_blinktconfigs.yaml

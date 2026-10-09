@@ -46,6 +46,7 @@ BLINKT_CONFIG=./blinkt.yaml BLINKT_STATE_DIR=/tmp/blinkt ./blinkt5   # user in g
 go-blinkt/       Go implementation of blinkt5 (module github.com/kubedge/kubesim_blinkt/go-blinkt)
 rust-blinkt/     Rust implementation of blinkt5 (crate kubesim_blinkt)
 dra-driver/      DRA driver blinkt.kubedge.io (module github.com/kubedge/kubesim_blinkt/dra-driver)
+blinkt-operator/ operator (BlinktConfig: legacy | cdi | agent) + sole-writer node agent (module …/blinkt-operator)
 tests/fixtures/  golden frames + state file both implementations are tested against
 build/           Dockerfiles (golang, rust) and CA bundle
 hack/            container-run cargo/fmt and the Go<->Rust interop check

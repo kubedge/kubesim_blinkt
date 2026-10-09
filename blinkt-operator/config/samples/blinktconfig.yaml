@@ -1,0 +1,11 @@
+# The operator acts only on the BlinktConfig named "cluster".
+apiVersion: blinkt.kubedge.io/v1alpha1
+kind: BlinktConfig
+metadata:
+  name: cluster
+spec:
+  mode: agent            # legacy | cdi | agent
+  legacyCompat: true     # share the strip with legacy sidecars while migrating
+  defaults:              # DeviceClass PixelConfig; claims override field by field
+    intensity: 5
+    algorithm: fixed5

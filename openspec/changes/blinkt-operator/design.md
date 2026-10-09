@@ -98,7 +98,9 @@ frame and releases the lines.
 `make operator-manifests` renders `config/` into `blinkt-operator/dist/install.yaml` (CRD, namespace, RBAC,
 manager Deployment). It is published as a release artifact and validated with kubeconform. The manager is a
 single replica with leader election, on arm64 nodes with the control-plane toleration, with a 96 Mi memory
-limit. The agent DaemonSet has a 48 Mi limit.
+limit. The agent DaemonSet has a 64 Mi limit (32 Mi request).
+- Measured on kind 1.36.4 (peak RSS): manager 35.7 MB, agent 36.7 MB. The agent's ResourceClaim informer costs
+  about 20 MB over `dra-driver`'s 15.8 MB, so the planned 48 Mi limit was raised to 64 Mi for headroom.
 
 ## Risks / Trade-offs
 
@@ -110,8 +112,8 @@ limit. The agent DaemonSet has a 48 Mi limit.
   migrated.
 - [Two drivers registering `blinkt.kubedge.io` on one node] → the operator serializes the switch and refuses
   to deploy when a foreign driver DaemonSet exists (`ForeignDriver`).
-- [Memory on 899 MB Pis: manager plus agent plus informers] → limits of 96 Mi and 48 Mi; measure on kind and
-  on a Pi before release. The `dra-driver` measured 15.8 MB.
+- [Memory on 899 MB Pis: manager plus agent plus informers] → measured on kind: manager 35.7 MB, agent 36.7 MB
+  (limits 96 Mi and 64 Mi). A control plane hosting both uses about 73 MB of its ~190 MB free. Re-measure on a Pi.
 - [Cluster-wide ResourceClaim watch from every agent] → negligible at this scale; a field-selector or
   label-based narrowing can come later.
 - [Opaque config is free-form JSON] → strict decoding (unknown fields rejected) plus range checks, tested.

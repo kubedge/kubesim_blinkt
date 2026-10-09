@@ -39,7 +39,7 @@ The operator SHALL never let the `dra-driver` and node-agent DaemonSets run pods
 
 #### Scenario: Hand-applied driver already present
 - **WHEN** mode is `cdi` or `agent` and a DaemonSet labelled `app.kubernetes.io/name=blinkt-dra-driver` that the operator does not own exists
-- **THEN** the operator creates no DaemonSet of its own, and sets `Ready=False` with reason `ForeignDriver`, naming that DaemonSet
+- **THEN** the operator runs no DaemonSet of its own (removing any it already runs), and sets `Ready=False` with reason `ForeignDriver`, naming that DaemonSet
 
 ### Requirement: No removal under live claims
 The operator SHALL NOT remove the DRA components (switching to `legacy`, or deleting the BlinktConfig) while ResourceClaims allocated by `blinkt.kubedge.io` exist. It SHALL keep them running and report the blocking claims instead.

@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: blinkt-operator
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: blinkt-operator}
+subjects:
+  - {kind: ServiceAccount, name: blinkt-operator, namespace: blinkt-system}
+---
+# Leader election (controller-runtime uses Leases in the operator's namespace).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: blinkt-operator-leader-election
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: blinkt-operator-leader-election
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: blinkt-operator-leader-election}
+subjects:
+  - {kind: ServiceAccount, name: blinkt-operator, namespace: blinkt-system}
