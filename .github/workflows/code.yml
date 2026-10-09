@@ -121,3 +121,22 @@ jobs:
       - run: make docker-buildx-check IMPL=rust
       - run: make dra-buildx-check
       - run: make operator-buildx-check
+
+  # The one code check to mark required on main. A skipped matrix job reports under its
+  # unexpanded name (`go (${{ matrix.root }})`), so requiring the per-job names would block
+  # every docs-only PR. This job passes when each code job passed or was skipped.
+  code-ok:
+    name: code-ok
+    needs: [changes, go, operator, rust, interop, images]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All code jobs passed or were skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success | skipped) ;; *) exit 1 ;; esac
+          done

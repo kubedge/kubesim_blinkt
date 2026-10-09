@@ -13,5 +13,5 @@ context: |
       Pi armv8), static, FROM scratch. NO base realign (nothing to realign to).
 
 rules:
-  spec:
+  specs:
     - Describe CURRENT behavior; do not spec aspirational features.
