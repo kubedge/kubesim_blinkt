@@ -81,6 +81,10 @@ type BlinktConfigStatus struct {
 	// Devices is the number of published blinkt.kubedge.io devices.
 	// +optional
 	Devices int32 `json:"devices,omitempty"`
+	// AgentNodes are the nodes the agent DaemonSet covers. A node that
+	// leaves gets a one-shot clear Job before it is dropped from this list.
+	// +optional
+	AgentNodes []string `json:"agentNodes,omitempty"`
 	// ObservedGeneration of the spec this status reflects.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

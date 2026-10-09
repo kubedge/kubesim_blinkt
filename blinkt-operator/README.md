@@ -68,6 +68,29 @@ securityContext. The agent:
 
 An invalid PixelConfig fails the pod start with an error naming the field.
 
+## Node lifecycle
+
+What happens when a node joins or leaves the set the node component covers, or when that component stops:
+
+| Event | Result |
+|---|---|
+| Clean stop (label removed, mode change, rollout) | The agent writes a dark frame (or withdraws its pixels with `legacyCompat`) and releases GPIO23/24. Both components remove their kubelet plugin sockets. The kubelet deletes the node's ResourceSlice ~30 s later. |
+| Crash or `kill -9` | The kernel frees the GPIO lines. The strip keeps its last frame until the agent restarts (it redraws from the API), or until the node leaves the agent (see next row). |
+| A node leaves the agent (selector, label, or mode no longer `agent`) | Once no agent pod remains there, the operator runs Job `blinkt-clear-<node>` (`/node-agent --clear`), then drops the node from `status.agentNodes`. |
+| `spec.nodeSelector` narrowed while a dropped node holds a blinkt claim | The DaemonSet keeps its current selector. `Ready=False NodeClaimsInUse` names the nodes and claims until they are gone. |
+| Claim prepared in cdi mode, unprepared after a switch to agent | The agent's unprepare removes `/var/run/cdi/blinkt.kubedge.io-<uid>.json`. |
+
+**Removing a node's label cannot be guarded:** the DaemonSet controller acts on it directly. Drain blinkt
+claims from the node first. To find them:
+
+```sh
+kubectl get resourceclaims -A -o json | jq -r --arg n NODE \
+  '.items[] | select(.status.allocation.devices.results[]?.pool==$n) | .metadata.namespace+"/"+.metadata.name'
+```
+
+The manager runs as one replica with `--leader-elect=false` and `strategy: Recreate`, so a stalled API server only
+delays reconciles. Use `--leader-elect=true` with more replicas.
+
 ## Install
 
 ```sh
@@ -141,3 +164,14 @@ Guards:
 | `dra-driver/deploy/blinkt-dra-driver.yaml` hand-applied | `Ready=False ForeignDriver: blinkt-dra/blinkt-dra-driver`; the operator removed its own DaemonSet; after deleting the hand-applied one, `agent` became Ready again |
 
 Peak memory (VmHWM): manager 35.7 MB (limit 96 Mi), agent 36.7 MB (limit 64 Mi).
+
+### Node lifecycle on kind (2026-10-09)
+
+kind 1.36.4, single node labelled `blinktInstalled=true`, `BlinktConfig.spec.nodeSelector: {blinktInstalled: "true"}`.
+
+| Scenario | Result |
+|---|---|
+| cdi claim prepared (`/var/run/cdi/blinkt.kubedge.io-9b77…json`) → mode `agent` with the claim live → pod deleted | Agent: `removed stale cdi-mode spec …json`, then `unprepared claim=…`; `/var/run/cdi` empty |
+| Agent claim (pixel 4 green) live → `nodeSelector` narrowed to `{blinktInstalled, zone: a}` | `NodeClaimsInUse: … blinkt-lc-control-plane: default/elte-led-nfb46`; DaemonSet selector unchanged, agent kept running; reverting the selector → Ready |
+| Agent `kill -9` → node unlabelled | Job `blinkt-clear-blinkt-lc-control-plane` Complete, log `frame [- - - - - - - -]` / `cleared strip`; `status.agentNodes` empty; devices 8 → 0 after the kubelet wiped the slice |
+

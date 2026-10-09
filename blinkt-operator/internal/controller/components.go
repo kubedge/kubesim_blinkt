@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,6 +27,7 @@ const (
 	AgentDaemonSet  = "blinkt-node-agent"
 
 	labelName      = "app.kubernetes.io/name"
+	labelNode      = "blinkt.kubedge.io/node"
 	labelManagedBy = "app.kubernetes.io/managed-by"
 	managedBy      = "blinkt-operator"
 
@@ -140,16 +142,9 @@ func MutateDriverDaemonSet(ds *appsv1.DaemonSet, cfg *blinktv1.BlinktConfig, ext
 
 // MutateAgentDaemonSet sets the agent-mode DaemonSet. extraArgs lets test
 // clusters add --fake-gpio.
-func MutateAgentDaemonSet(ds *appsv1.DaemonSet, cfg *blinktv1.BlinktConfig, agentImage string, extraArgs []string) {
-	image := cfg.Spec.Images.Agent
-	if image == "" {
-		image = agentImage
-	}
-	args := []string{"--state-dir=/etc/kubedge"}
-	if cfg.Spec.LegacyCompat {
-		args = append(args, "--legacy-compat")
-	}
-	args = append(args, extraArgs...)
+func MutateAgentDaemonSet(ds *appsv1.DaemonSet, cfg *blinktv1.BlinktConfig, defaultAgentImage string, extraArgs []string) {
+	image := agentImage(cfg, defaultAgentImage)
+	args := append([]string{"--cdi-dir=/var/run/cdi"}, agentArgs(cfg, extraArgs)...)
 	daemonSet(ds, cfg, AgentDaemonSet, "blinkt-node-agent", corev1.Container{
 		Name:            "agent",
 		Image:           image,
@@ -160,15 +155,75 @@ func MutateAgentDaemonSet(ds *appsv1.DaemonSet, cfg *blinktv1.BlinktConfig, agen
 		VolumeMounts: []corev1.VolumeMount{
 			mount("plugins-registry", "/var/lib/kubelet/plugins_registry", false),
 			mount("plugins", "/var/lib/kubelet/plugins", false),
+			mount("cdi", "/var/run/cdi", false),
 			mount("dev", "/dev", false),
 			mount("state", "/etc/kubedge", false),
 		},
 	}, []corev1.Volume{
 		hostPath("plugins-registry", "/var/lib/kubelet/plugins_registry", ""),
 		hostPath("plugins", "/var/lib/kubelet/plugins", ""),
+		hostPath("cdi", "/var/run/cdi", corev1.HostPathDirectoryOrCreate),
 		hostPath("dev", "/dev", ""),
 		hostPath("state", "/etc/kubedge", corev1.HostPathDirectoryOrCreate),
 	})
+}
+
+// agentArgs are the node-agent flags shared by the DaemonSet and the clear Job.
+func agentArgs(cfg *blinktv1.BlinktConfig, extraArgs []string) []string {
+	args := []string{"--state-dir=/etc/kubedge"}
+	if cfg.Spec.LegacyCompat {
+		args = append(args, "--legacy-compat")
+	}
+	return append(args, extraArgs...)
+}
+
+func agentImage(cfg *blinktv1.BlinktConfig, def string) string {
+	if cfg.Spec.Images.Agent != "" {
+		return cfg.Spec.Images.Agent
+	}
+	return def
+}
+
+// ClearJobName is the one-shot Job that clears the agent's pixels on node.
+func ClearJobName(node string) string { return "blinkt-clear-" + node }
+
+// MutateClearJob sets the Job that runs `/node-agent --clear` on node after
+// the agent left it (it needs no API access).
+func MutateClearJob(job *batchv1.Job, cfg *blinktv1.BlinktConfig, node, image string, extraArgs []string) {
+	privileged := true
+	root := int64(0)
+	backoff := int32(3)
+	ttl := int32(600)
+	noToken := false
+	labels := managedLabels("blinkt-clear")
+	labels[labelNode] = node
+	job.Labels = labels
+	job.Spec = batchv1.JobSpec{
+		BackoffLimit:            &backoff,
+		TTLSecondsAfterFinished: &ttl,
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Labels: labels},
+			Spec: corev1.PodSpec{
+				NodeName:                     node,
+				RestartPolicy:                corev1.RestartPolicyNever,
+				AutomountServiceAccountToken: &noToken,
+				Tolerations:                  []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
+				Containers: []corev1.Container{{
+					Name:            "clear",
+					Image:           agentImage(cfg, image),
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Command:         []string{"/node-agent"},
+					Args:            append([]string{"--clear"}, agentArgs(cfg, extraArgs)...),
+					SecurityContext: &corev1.SecurityContext{Privileged: &privileged, RunAsUser: &root},
+					VolumeMounts:    []corev1.VolumeMount{mount("dev", "/dev", false), mount("state", "/etc/kubedge", false)},
+				}},
+				Volumes: []corev1.Volume{
+					hostPath("dev", "/dev", ""),
+					hostPath("state", "/etc/kubedge", corev1.HostPathDirectoryOrCreate),
+				},
+			},
+		},
+	}
 }
 
 // MutateDeviceClass sets the DeviceClass, carrying spec.defaults as its

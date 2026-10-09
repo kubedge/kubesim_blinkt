@@ -169,6 +169,13 @@ spec:
           status:
             description: BlinktConfigStatus is the observed Blinkt! setup.
             properties:
+              agentNodes:
+                description: |-
+                  AgentNodes are the nodes the agent DaemonSet covers. A node that
+                  leaves gets a one-shot clear Job before it is dropped from this list.
+                items:
+                  type: string
+                type: array
               conditions:
                 description: 'Conditions: Ready.'
                 items:

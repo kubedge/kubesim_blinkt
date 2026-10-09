@@ -33,9 +33,9 @@
 
 ## 7. Hardware (after picluster's 1.36.5 upgrade)
 
-- [ ] 7.1 On piclustera, operator in `agent` mode. Two claims (lte pixel 6 blue, elte pixel 4 green) light correctly, and deleting a pod darkens only its LED (operator confirmation).
-- [ ] 7.2 Switch `agent` → `cdi` → `agent` on the live cluster with claims present. Verify the LEDs recover and no two drivers ran on a node.
-- [ ] 7.3 With `legacyCompat: true`, a legacy 0.5.x sidecar and an agent-mode claim on one Pi both stay lit.
+- [x] 7.1 On piclustera, operator in `agent` mode. Two claims (lte pixel 6 blue, elte pixel 4 green) light correctly, and deleting a pod darkens only its LED (operator confirmation). **Done 2026-10-09:** piclusterb kube-node02 (and piclustera home-pi): lte pixel 6 blue blinking + elte pixel 4 green; pods had no /dev/gpiochip0; deleting elte darkened only pixel 4 (operator confirmed).
+- [x] 7.2 Switch `agent` → `cdi` → `agent` on the live cluster with claims present. Verify the LEDs recover and no two drivers ran on a node. **Done 2026-10-09:** piclusterb with lte live: agent→cdi (pixel 6 dark by design) →agent (blinking again); driver pods Killing before agent pods created on every node; converged even with an overlapping second patch.
+- [x] 7.3 With `legacyCompat: true`, a legacy 0.5.x sidecar and an agent-mode claim on one Pi both stay lit. **Done 2026-10-09:** piclusterb kube-node02: legacy 0.5.2 sidecar pixel 7 red + agent pixel 6 blinking, both lit; state file owners legacy-px7 and blinkt-node-agent; GPIO23/24 free between frames.
 
 ## 8. Simulator charts (follow-up PRs in kubesim_5gc, nr, epc, lte, elte)
 

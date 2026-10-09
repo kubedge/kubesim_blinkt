@@ -108,6 +108,11 @@ func (in *BlinktConfigSpec) DeepCopy() *BlinktConfigSpec {
 func (in *BlinktConfigStatus) DeepCopyInto(out *BlinktConfigStatus) {
 	*out = *in
 	out.Nodes = in.Nodes
+	if in.AgentNodes != nil {
+		in, out := &in.AgentNodes, &out.AgentNodes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))
