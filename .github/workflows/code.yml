@@ -1,0 +1,123 @@
+# Code CI for the four code roots (openspec change adopt-go-ci). Kept out of the class-M
+# ci.yml (secret-scan) so a claude-meta broadcast merges that file without touching these
+# jobs. Every job runs the same Makefile target as the local `make test lint`.
+name: code
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: code-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # A docs- or spec-only change skips the code jobs. Skipped jobs report success, so they
+  # can be required checks on main.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!openspec/**'
+              - '!docs/**'
+              - '!.claude/**'
+              - '!.agents/**'
+              - '!.github/ISSUE_TEMPLATE/**'
+          predicate-quantifier: every
+
+  go:
+    name: go (${{ matrix.root }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - root: go-blinkt
+            target: go
+          - root: dra-driver
+            target: dra
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.root }}/go.mod
+          cache-dependency-path: ${{ matrix.root }}/go.sum
+      - run: make ${{ matrix.target }}-test ${{ matrix.target }}-lint
+
+  operator:
+    name: operator
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: blinkt-operator/go.mod
+          cache-dependency-path: blinkt-operator/go.sum
+      # setup-envtest and the k8s 1.36 control-plane binaries it fetches
+      - uses: actions/cache@v5
+        with:
+          path: blinkt-operator/bin
+          key: operator-bin-${{ runner.os }}-${{ hashFiles('Makefile') }}
+      - run: make operator-test operator-lint
+
+  # cargo runs in the pinned rust:1.99 container (hack/cargo.sh), as locally
+  rust:
+    name: rust
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - run: make rust-test rust-lint
+
+  interop:
+    name: interop
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - run: |
+          make interop | tee interop.log
+          grep -q 'INTEROP OK' interop.log
+
+  # Multi-arch builds, no push. Every Dockerfile cross-compiles on $BUILDPLATFORM, so no QEMU.
+  images:
+    name: images
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - run: make docker-buildx-check
+      - run: make docker-buildx-check IMPL=rust
+      - run: make dra-buildx-check
+      - run: make operator-buildx-check

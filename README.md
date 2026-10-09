@@ -81,6 +81,10 @@ make docker-buildx-all              # push both
 
 Each image gets `<version>` and `latest` tags. Docker with buildx is needed for the Rust targets and the images (e.g. `colima start`).
 
+CI (`.github/workflows/code.yml`) runs the same targets on every PR: `go (go-blinkt)`, `go (dra-driver)`,
+`operator`, `rust`, `interop` and `images` (all four `*-buildx-check`, no push). A docs- or spec-only change
+skips them. `ci.yml` (`secret-scan`) comes from claude-meta; leave it as delivered.
+
 ## Deploy
 
 `charts/kubesim-blinkt` lights LEDs on Blinkt! nodes; `blinkt.mode` chooses how:
