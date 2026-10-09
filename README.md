@@ -83,8 +83,7 @@ Each image gets `<version>` and `latest` tags. Docker with buildx is needed for 
 
 ## Deploy
 
-`charts/kubesim-blinkt` lights the LEDs listed in `blinkt.pixels` (a fixed `index` 0-7, or none for any free
-LED). `blinkt.mode` chooses how:
+`charts/kubesim-blinkt` lights LEDs on Blinkt! nodes; `blinkt.mode` chooses how:
 
 | mode | needs | pod |
 |---|---|---|
@@ -92,11 +91,21 @@ LED). `blinkt.mode` chooses how:
 | `cdi` | blinkt-operator mode `cdi` (or `dra-driver/deploy`), CDI in containerd | DRA claim + unprivileged blinkt; CDI hands it `/dev/gpiochip0`, `/run/blinkt`, `BLINKT_PIXELS` |
 | `legacy` | nothing | privileged blinkt with hostPath `/etc/kubedge` |
 
+The chart is a Kubernetes demo: **every replica lights one LED in the release colour**.
+
 ```sh
-helm install red charts/kubesim-blinkt                      # pixel 0 red, agent mode
-helm install any charts/kubesim-blinkt -f anyfree.yaml      # pixels: [{color: [0,255,255]}]: any free LED
-helm install t charts/kubesim-blinkt --set kind=DaemonSet   # one pod per node labelled blinktInstalled=true
+helm install demo charts/kubesim-blinkt --set blinkt.release=green   # 2 replicas -> 2 green LEDs
+kubectl scale deploy/demo-kubesim-blinkt --replicas=3                # -> 3 green LEDs
+helm upgrade demo charts/kubesim-blinkt --set blinkt.release=blue --set replicaCount=3
+#   rolling update: blue LEDs come up one by one while the green ones go out
 ```
+
+In DRA modes each replica claims **any free LED**, so N replicas show N LEDs even on a single Pi; a 9th replica on
+an 8-LED node stays Pending. On kind (agent mode) the upgrade drew
+`[G G G - …] → [G G G B …] → [G G G B B …] → [G G - B B …] → [G G B B B …] → [G - B B B …] → [- - B B B …]`.
+In legacy mode the release colour picks a fixed LED (red 0, green 1, blue 2), as the original demo did.
+`blinkt.pixels` replaces the per-replica LED with an explicit list (fixed indexes make the Deployment use
+`Recreate`).
 
 Without Helm, `deploy/` holds a test pattern (all 8 LEDs in distinct colours, one pod per labelled node) rendered
 from the chart: `deploy/kubesim-blinkt.yaml` (agent), `-cdi.yaml` and `-legacy.yaml`. Regenerate them with

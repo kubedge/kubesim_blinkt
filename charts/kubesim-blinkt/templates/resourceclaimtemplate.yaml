@@ -12,7 +12,7 @@ spec:
   spec:
     devices:
       requests:
-      {{- range $i, $p := .Values.blinkt.pixels }}
+      {{- range $i, $p := (include "kubesim_blinkt.pixels" . | fromJsonArray) }}
         - name: led{{ $i }}
           exactly:
             deviceClassName: {{ $.Values.blinkt.deviceClassName }}
@@ -24,7 +24,7 @@ spec:
       {{- end }}
       {{- if eq .Values.blinkt.mode "agent" }}
       config:
-      {{- range $i, $p := .Values.blinkt.pixels }}
+      {{- range $i, $p := (include "kubesim_blinkt.pixels" . | fromJsonArray) }}
         - requests: [led{{ $i }}]
           opaque:
             driver: blinkt.kubedge.io

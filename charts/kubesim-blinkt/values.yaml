@@ -22,14 +22,21 @@
 #                    /dev/gpiochip0, /run/blinkt and BLINKT_PIXELS through CDI.
 #   legacy           Privileged blinkt container with hostPath /etc/kubedge, no DRA, for
 #                    clusters without blinkt-operator.
+#
+# Demo: every replica lights ONE LED in the release colour.
+#   kubectl scale deploy/<release>-kubesim-blinkt --replicas=3    -> 3 LEDs
+#   helm upgrade <release> . --set blinkt.release=blue            -> the rolling update
+#     shows blue LEDs appearing while the green ones go out
+# In DRA modes each replica claims any free LED, so N replicas show N LEDs even on one
+# Pi (more than 8 per node stay Pending: the node is out of LEDs). In legacy mode the
+# release colour sets a fixed LED (red 0, green 1, blue 2), so replicas on one node share it.
 blinkt:
   mode: agent
-  # LEDs this release lights. index: a fixed LED (0-7); omit it to take any free LED
-  # (DRA modes only). In agent mode each entry gets its own colour; in cdi mode an LED
-  # without an index takes the colour of the lowest configured index.
-  pixels:
-    - index: 0
-      color: [255, 0, 0]
+  release: red          # red | green | blue
+  # Optional: explicit LEDs per pod instead of one any-free LED in the release colour.
+  # index: a fixed LED 0-7 (omit for any free LED, DRA modes only); color: [r, g, b].
+  # Fixed LEDs make the Deployment use Recreate (old and new pods cannot hold the same LED).
+  pixels: []
   intensity: 3          # 0-31
   algorithm: fixed5     # steady (agent only) | fixed5 | fixed
   frequency: 500        # ms
@@ -39,7 +46,7 @@ nameOverride: kubesim-blinkt
 # Deployment (replicaCount pods, placed by the scheduler where their LEDs are free) or
 # DaemonSet (one pod per selected node).
 kind: Deployment
-replicaCount: 1
+replicaCount: 2
 nodeSelector:
   blinktInstalled: "true"
 tolerations: []

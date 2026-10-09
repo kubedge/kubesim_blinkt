@@ -14,7 +14,7 @@ data:
     intensity: {{ int .Values.blinkt.intensity }}
     frequency: {{ int .Values.blinkt.frequency }}
     {{- $any := list }}
-    {{- range $p := .Values.blinkt.pixels }}
+    {{- range $p := (include "kubesim_blinkt.pixels" . | fromJsonArray) }}
     {{- if hasKey $p "index" }}
     pixel{{ int $p.index }}: {{ toJson $p.color }}
     {{- else }}

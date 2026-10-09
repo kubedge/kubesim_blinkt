@@ -58,14 +58,14 @@ spec:
             limits: {memory: 8Mi}
       resourceClaims:
         - name: blinkt
-          resourceClaimTemplateName: test-pattern-kubesim-blinkt-ed39b088
+          resourceClaimTemplateName: test-pattern-kubesim-blinkt-7a84a466
 
 ---
 # The release's Blinkt! LEDs, claimed through DRA: one request per LED.
 apiVersion: resource.k8s.io/v1
 kind: ResourceClaimTemplate
 metadata:
-  name: test-pattern-kubesim-blinkt-ed39b088
+  name: test-pattern-kubesim-blinkt-7a84a466
   namespace: kubesim-blinkt
   labels:
     app: kubesim-blinkt
