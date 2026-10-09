@@ -515,8 +515,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: AGENT_IMAGE
-          value: docker.io/kubedge1/blinkt-operator:0.5.2
-        image: docker.io/kubedge1/blinkt-operator:0.5.2
+          value: docker.io/kubedge1/blinkt-operator:0.5.3
+        image: docker.io/kubedge1/blinkt-operator:0.5.3
         livenessProbe:
           httpGet:
             path: /healthz

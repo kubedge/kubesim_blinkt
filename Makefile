@@ -92,6 +92,9 @@ dra-buildx-check:
 
 # blinkt-operator (blinkt-operator/, its own Go module; replaces go-blinkt with ../go-blinkt)
 OPERATOR_REPO  ?= ${DOCKER_NAMESPACE}/blinkt-operator
+# The operator can release on its own: 0.5.3 adds the node-lifecycle fixes;
+# kubesim_blinkt{,_go,_rs} and blinkt-dra-driver stay at VERSION_V1.
+OPERATOR_VERSION ?= 0.5.3
 OPERATOR_BIN   := blinkt-operator/bin
 CONTROLLER_GEN := $(OPERATOR_BIN)/controller-gen
 SETUP_ENVTEST  := $(OPERATOR_BIN)/setup-envtest
@@ -120,7 +123,7 @@ operator-lint:
 	cd blinkt-operator && go vet ./...
 
 operator-buildx: operator-test operator-lint ## Build and push the multi-arch operator image
-	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${OPERATOR_REPO}:${VERSION_V1} -t ${OPERATOR_REPO}:latest \
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${OPERATOR_REPO}:${OPERATOR_VERSION} -t ${OPERATOR_REPO}:latest \
 	  --label org.opencontainers.image.revision=$$(git rev-parse HEAD) \
 	  --label org.opencontainers.image.source=https://github.com/kubedge/kubesim_blinkt \
 	  -f blinkt-operator/Dockerfile .
