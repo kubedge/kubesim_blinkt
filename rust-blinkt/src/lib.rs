@@ -6,3 +6,8 @@ pub mod led_output;
 pub mod ledstate;
 pub mod logger;
 pub mod runtime;
+
+// Throwaway: proves clippy -D warnings fails CI (adopt-go-ci task 3.2). Reverted.
+pub fn ci_negative(v: &[u8]) -> bool {
+    v.len() == 0
+}
