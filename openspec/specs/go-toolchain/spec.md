@@ -1,5 +1,8 @@
 # go-toolchain Specification
 
+## Summary
+The Go modules `go-blinkt` and `dra-driver` declare the same `go` directive, currently 1.26.0, and it stays one of the two newest Go releases. Every Dockerfile that compiles Go (`build/Dockerfile.golang`, `hack/interop/Dockerfile`, `dra-driver/Dockerfile`) uses a `golang` builder image of that same release. Together these keep `make go-test go-lint dra-test dra-lint` and the images on one toolchain.
+
 ## Purpose
 Keeps every Go module in this repo, and the images built from them, on one current and supported Go
 release, so the Go implementation and the DRA driver build and test the same way.

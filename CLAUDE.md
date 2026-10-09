@@ -1,19 +1,20 @@
 # CLAUDE.md
 
-This file orients Claude Code at the start of every session in this repo.
-
-> **Just bootstrapped via `/alemax:new-project`?** Run `/opsx:propose` to spec out your first change.
-> *(This nudge can be removed once you've made your first commit beyond bootstrap.)*
+This file orients Claude Code at the start of every session in this repo. What the project does and how to
+build, run and deploy it is in [README.md](README.md); how the parts fit together (blinkt5 in Go and Rust, the
+shared LED state, the DRA driver, the operator and its node agent) is in [architecture.md](architecture.md).
 
 ## Project purpose
 
-<TBD>
+Lights the LEDs of a Pimoroni Blinkt! on Raspberry Pi Kubernetes nodes so people can *see* Kubernetes work:
+each kubesim simulator pod, or each replica of the `charts/kubesim-blinkt` demo, owns an LED. The LEDs are
+shared through a locked state file or claimed through DRA (`blinkt.kubedge.io`), managed by `blinkt-operator`.
 
 ## Identity
 
 - **GitHub owner:** `kubedge` (where `gh` pushes; where the repo lives)
-- **Commits authored as:** `{{OPERATOR_NAME}} <{{OPERATOR_EMAIL}}>` (asserted at the repo level by `init-project.sh`; matches `git config user.{name,email}`)
-- **Keychain service:** `{{KEYCHAIN_SERVICE}}` (where `bin/load-secrets.sh` reads project secrets)
+- **Commits authored as:** `Jerome Brette <jbrette.work@gmail.com>` (matches `git config user.{name,email}`)
+- **Keychain service:** `com.kubedge.kubesim_blinkt` (where `bin/set-secret.sh` stores project secrets)
 
 ## Stack & layout
 
@@ -85,17 +86,12 @@ For tiny edits (typo fix, single-line change), skip OpenSpec — overhead isn't 
 
 ## Secrets
 
-Local: macOS Keychain, service `{{KEYCHAIN_SERVICE}}`.
+Local: macOS Keychain, service `com.kubedge.kubesim_blinkt`. No secret is required today: `.env.example` lists none.
 - Required keys are listed in `.env.example`.
 - Populate: `bin/set-secret.sh <KEY>` (one key) or `bin/set-secret.sh --bootstrap` (walks every key in `.env.example`).
-- Load into the current shell: `source bin/load-secrets.sh`.
 
 CI: GitHub Actions repo secrets. Sync from Keychain with the meta-repo helper:
 `<claude-meta>/meta/bin/sync-secrets-to-gh.sh --project kubesim_blinkt --ghhandle kubedge`.
-
-## Known gotchas
-
-(Populated as the project matures.)
 
 ## Open questions
 

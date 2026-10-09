@@ -1,5 +1,8 @@
 # blinkt-runtime Specification
 
+## Summary
+`blinkt5` reads a YAML config (`BLINKT_CONFIG`) with `algorithm`, `intensity`, `frequency` and `pixel0` to `pixel7`; a missing or invalid file is fatal, and `frequency` defaults to 1000 ms. It names itself `BLINKT_OWNER` (default: the hostname) in the shared state, and its entries expire after a TTL. On start it logs the GPIO lines and either `shared state=` or `solo`. A drawing failure exits 1, and SIGINT or SIGTERM turns off only its own LEDs.
+
 ## Purpose
 The operator-facing contract of the kubesim_blinkt program: how it is configured, which LED pattern it
 runs, how it names itself, and what it logs and returns on start, stop and failure.

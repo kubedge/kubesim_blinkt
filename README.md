@@ -7,6 +7,12 @@ device (`/dev/gpiochip0`, BCM GPIO23 data / GPIO24 clock). It mostly runs as the
 kubesim simulator charts (5gc, nr, epc, lte, elte), each lighting its own LED. Several blinkt processes on
 one Pi share the strip through a locked state file, and each draws only its own pixels.
 
+## Documentation
+
+- [architecture.md](architecture.md): how the parts fit together (LED driving, shared state, DRA, the three modes)
+- `openspec/specs/`: the normative behaviour, one spec per capability
+- [dra-driver/README.md](dra-driver/README.md), [blinkt-operator/README.md](blinkt-operator/README.md)
+
 ## Configuration
 
 | Setting | Default | Meaning |

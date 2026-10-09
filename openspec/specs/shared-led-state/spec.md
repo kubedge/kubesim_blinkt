@@ -1,5 +1,8 @@
 # shared-led-state Specification
 
+## Summary
+Several blinkt processes on one node share the eight LEDs through `blinkt_state.json` in a shared directory (`/etc/kubedge`, or `/run/blinkt` under CDI). Every update takes an exclusive flock on `blinkt.lock`, prunes expired entries and saves atomically. The drawn frame merges all owners' pixels; on a conflict the owner whose name sorts last wins. A process withdraws only its own pixels, falls back to solo mode when the directory is unusable, and the Go and Rust implementations read each other's state.
+
 ## Purpose
 Lets several blinkt processes on one node, typically the blinkt sidecars of co-located kubesim simulator pods,
 share the eight LEDs. Each process lights only its own pixels, and the drawn frame is the merge of all of them.

@@ -1,5 +1,8 @@
 # blinkt-node-lifecycle Specification
 
+## Summary
+Covers what happens when a node leaves the set the operator's node component runs on. Narrowing `spec.nodeSelector` waits while a dropped node still holds a claim (`NodeClaimsInUse`). Once the agent's pod is gone, a `blinkt-clear-<node>` Job withdraws only the agent's pixels, and the node leaves `status.agentNodes`. The agent also removes stale cdi-mode CDI specs, and the manager runs as one replica without leader election, with a `Recreate` rollout.
+
 ## Purpose
 Keeps each node consistent when it joins or leaves the set covered by the blinkt-operator's node component, or
 when that component stops: no orphaned pixels, no leaked CDI files, no frozen LEDs. Also keeps the operator

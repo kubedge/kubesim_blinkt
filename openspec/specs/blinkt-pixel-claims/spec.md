@@ -1,5 +1,8 @@
 # blinkt-pixel-claims Specification
 
+## Summary
+Workloads request LEDs through the DeviceClass `blinkt-pixel.kubedge.io`, either a specific pixel by its `index` attribute or any free one. The scheduler gives each pixel to at most one claim at a time, so a ninth claim on an eight-LED node stays Pending. The blinkt program lights exactly the pixels in `BLINKT_PIXELS` and exits on an invalid allocation.
+
 ## Purpose
 How workloads request Blinkt! LEDs through DRA, how the scheduler places them, and how the blinkt program
 lights the pixels it was actually allocated.
