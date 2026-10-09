@@ -71,7 +71,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: blinkt
-          image: docker.io/kubedge1/kubesim_blinkt:0.4.0
+          image: docker.io/kubedge1/kubesim_blinkt:0.5.2
           imagePullPolicy: IfNotPresent
           env:
             - name: BLINKT_CONFIG

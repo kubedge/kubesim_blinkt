@@ -30,7 +30,7 @@ const (
 	managedBy      = "blinkt-operator"
 
 	// DefaultDriverImage is the published dra-driver (the DaemonSet approach).
-	DefaultDriverImage = "docker.io/kubedge1/blinkt-dra-driver:0.5.1"
+	DefaultDriverImage = "docker.io/kubedge1/blinkt-dra-driver:0.5.2"
 )
 
 func managedLabels(name string) map[string]string {

@@ -84,7 +84,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: plugin
-          image: docker.io/kubedge1/blinkt-dra-driver:0.5.1
+          image: docker.io/kubedge1/blinkt-dra-driver:0.5.2
           imagePullPolicy: IfNotPresent
           args:
             - --state-dir=/etc/kubedge

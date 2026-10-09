@@ -39,7 +39,7 @@ metadata:
 spec:
   containers:
     - name: blinkt
-      image: docker.io/kubedge1/kubesim_blinkt:0.5.1
+      image: docker.io/kubedge1/kubesim_blinkt:0.5.2
       env:
         - name: BLINKT_CONFIG
           value: /config/blinkt_conf.yaml

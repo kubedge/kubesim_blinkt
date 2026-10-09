@@ -14,7 +14,7 @@
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.5.1
+VERSION_V1       ?= 0.5.2
 DOCKER_NAMESPACE ?= kubedge1
 DHUBREPO         ?= ${DOCKER_NAMESPACE}/${COMPONENT}
 K8S_NAMESPACE    ?= default
