@@ -1,0 +1,22 @@
+# kubectl kustomize config/default > dist/install.yaml
+namespace: blinkt-system
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+images:
+  - name: blinkt-operator
+    newName: docker.io/kubedge1/blinkt-operator
+    newTag: 0.5.2
+replacements:
+  # AGENT_IMAGE follows the manager image.
+  - source:
+      kind: Deployment
+      name: blinkt-operator
+      fieldPath: spec.template.spec.containers.[name=manager].image
+    targets:
+      - select:
+          kind: Deployment
+          name: blinkt-operator
+        fieldPaths:
+          - spec.template.spec.containers.[name=manager].env.[name=AGENT_IMAGE].value

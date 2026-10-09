@@ -10,10 +10,11 @@
 #   make docker-buildx IMPL=rust       push the Rust image
 #   make docker-buildx-all             push both
 #   make dra-buildx                    push the DRA driver image (dra-driver/)
+#   make operator-buildx               push the blinkt-operator image (manager + node agent)
 
 # Image URL to use all building/pushing image targets
 COMPONENT        ?= kubesim_blinkt
-VERSION_V1       ?= 0.5.1
+VERSION_V1       ?= 0.5.2
 DOCKER_NAMESPACE ?= kubedge1
 DHUBREPO         ?= ${DOCKER_NAMESPACE}/${COMPONENT}
 K8S_NAMESPACE    ?= default
@@ -39,12 +40,13 @@ endif
 .PHONY: all test lint fmt interop clean \
 	rust-test rust-lint rust-fmt go-test go-lint go-fmt \
 	dra-test dra-lint dra-buildx dra-buildx-check \
+	operator-test operator-lint operator-generate operator-manifests operator-buildx operator-buildx-check \
 	docker-buildx docker-buildx-all docker-buildx-check deploy undeploy install purge
 
 all: test lint
 
-test: rust-test go-test dra-test
-lint: rust-lint go-lint dra-lint
+test: rust-test go-test dra-test operator-test
+lint: rust-lint go-lint dra-lint operator-lint
 fmt: rust-fmt go-fmt
 
 # Rust (rust-blinkt/): cargo runs in the pinned toolchain container (hack/cargo.sh), so no
@@ -87,6 +89,44 @@ dra-buildx: dra-test dra-lint ## Build and push the multi-arch DRA driver image
 
 dra-buildx-check:
 	$(CONTAINER_TOOL) buildx build --platform=$(PLATFORMS) dra-driver
+
+# blinkt-operator (blinkt-operator/, its own Go module; replaces go-blinkt with ../go-blinkt)
+OPERATOR_REPO  ?= ${DOCKER_NAMESPACE}/blinkt-operator
+OPERATOR_BIN   := blinkt-operator/bin
+CONTROLLER_GEN := $(OPERATOR_BIN)/controller-gen
+SETUP_ENVTEST  := $(OPERATOR_BIN)/setup-envtest
+ENVTEST_K8S    ?= 1.36.x
+OPERATOR_SRC   := blinkt-operator/api blinkt-operator/cmd blinkt-operator/internal
+
+$(CONTROLLER_GEN):
+	GOBIN=$(abspath $(OPERATOR_BIN)) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.21.0
+
+$(SETUP_ENVTEST):
+	GOBIN=$(abspath $(OPERATOR_BIN)) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.24
+
+operator-generate: $(CONTROLLER_GEN) ## DeepCopy, CRD and RBAC from the Go types/markers
+	cd blinkt-operator && bin/controller-gen object paths=./api/...
+	cd blinkt-operator && bin/controller-gen crd paths=./api/... output:crd:dir=config/crd/bases
+	cd blinkt-operator && bin/controller-gen rbac:roleName=blinkt-operator paths=./internal/... output:rbac:dir=config/rbac
+
+operator-manifests: operator-generate ## render blinkt-operator/dist/install.yaml
+	kubectl kustomize blinkt-operator/config/default > blinkt-operator/dist/install.yaml
+
+operator-test: $(SETUP_ENVTEST)
+	cd blinkt-operator && KUBEBUILDER_ASSETS="$$(bin/setup-envtest use $(ENVTEST_K8S) --bin-dir $(abspath $(OPERATOR_BIN))/envtest -p path)" go test -race ./...
+
+operator-lint:
+	@test -z "$$(gofmt -l $(OPERATOR_SRC))" || { gofmt -l $(OPERATOR_SRC); echo "gofmt: files above need formatting"; exit 1; }
+	cd blinkt-operator && go vet ./...
+
+operator-buildx: operator-test operator-lint ## Build and push the multi-arch operator image
+	$(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) -t ${OPERATOR_REPO}:${VERSION_V1} -t ${OPERATOR_REPO}:latest \
+	  --label org.opencontainers.image.revision=$$(git rev-parse HEAD) \
+	  --label org.opencontainers.image.source=https://github.com/kubedge/kubesim_blinkt \
+	  -f blinkt-operator/Dockerfile .
+
+operator-buildx-check:
+	$(CONTAINER_TOOL) buildx build --platform=$(PLATFORMS) -f blinkt-operator/Dockerfile .
 
 # Go <-> Rust shared-state interop check, built from this tree
 interop:

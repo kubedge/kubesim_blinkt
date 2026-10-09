@@ -1,0 +1,25 @@
+# dra-driver (cdi mode) and the node agent (agent mode) publish ResourceSlices
+# for their node, read ResourceClaims and get their Node (for the slice owner).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: blinkt-node-component
+rules:
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceslices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: blinkt-node-component
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: blinkt-node-component}
+subjects:
+  - {kind: ServiceAccount, name: blinkt-dra-driver, namespace: blinkt-system}
+  - {kind: ServiceAccount, name: blinkt-node-agent, namespace: blinkt-system}

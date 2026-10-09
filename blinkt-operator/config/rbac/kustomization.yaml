@@ -1,0 +1,5 @@
+resources:
+  - role.yaml
+  - role_binding.yaml
+  - service_accounts.yaml
+  - node_components.yaml
