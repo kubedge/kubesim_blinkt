@@ -11,7 +11,7 @@ RUN case "$TARGETARCH" in \
     esac > /triple && rustup target add "$(cat /triple)"
 COPY rust-blinkt/Cargo.toml rust-blinkt/Cargo.lock rust-blinkt/rust-toolchain.toml ./
 COPY rust-blinkt/src/ src/
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/workspace/target,id=blinkt-target-${TARGETARCH} \
     T="$(cat /triple)" && \
     RUSTFLAGS="-C linker=rust-lld -C target-feature=+crt-static" \
