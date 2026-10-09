@@ -2,7 +2,7 @@
 
 ## 1. Prerequisites
 
-- [ ] 1.1 Track picluster-automation's planned upgrade changes (Kubernetes 1.36.5, containerd 2.x with CDI, piclustera first). It is not done in this repo. Verify picluster reports `resource.k8s.io/v1` served and dra-example-driver passing on piclustera.
+- [x] 1.1 Track picluster-automation's planned upgrade changes (Kubernetes 1.36.5, containerd 2.x with CDI, piclustera first). It is not done in this repo. Verify picluster reports `resource.k8s.io/v1` served and dra-example-driver passing on piclustera. **Done 2026-10-09:** picluster-automation upgraded both clusters to Kubernetes 1.36.5, containerd 2.3.6, CDI on (/etc/cdi, /var/run/cdi); resource.k8s.io/v1 served.
 - [x] 1.2 Stand up a local test cluster (kind node image 1.36.x, CDI enabled) for driver development. Verify `kubectl api-resources | grep resource.k8s.io` lists `deviceclasses`, `resourceclaims` and `resourceslices` at `v1`.
 
 ## 2. Driver skeleton (`blinkt-dra-driver`)
@@ -34,7 +34,7 @@
 
 ## 7. Hardware rollout (after 1.1 is done)
 
-- [ ] 7.1 Deploy the driver on piclustera and verify 8 devices per Pi in its ResourceSlices.
+- [x] 7.1 Deploy the driver on piclustera and verify 8 devices per Pi in its ResourceSlices. **Done 2026-10-09:** via blinkt-operator cdi mode (dra-driver 0.5.2): piclustera home-pi + nas-pi 2×8, piclusterb kube-node01..04 4×8 devices; each pod logged `registered …` / `published devices=8 … chip=gpiochip0`.
 - [ ] 7.2 Deploy kubesim_lte and kubesim_elte in DRA mode on one node. Verify that:
   - both sidecars run unprivileged;
   - pixels 4 and 6 are lit (operator confirmation);
