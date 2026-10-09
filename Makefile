@@ -41,7 +41,7 @@ endif
 	rust-test rust-lint rust-fmt go-test go-lint go-fmt \
 	dra-test dra-lint dra-buildx dra-buildx-check \
 	operator-test operator-lint operator-generate operator-manifests operator-buildx operator-buildx-check \
-	docker-buildx docker-buildx-all docker-buildx-check deploy undeploy install purge
+	docker-buildx docker-buildx-all docker-buildx-check deploy-manifests deploy undeploy install purge
 
 all: test lint
 
@@ -165,8 +165,12 @@ install:
 purge:
 	helm uninstall blinkt5 --namespace ${K8S_NAMESPACE}
 
-# Plain manifests (no Helm). Label each Blinkt! node first:
-#   kubectl label node <node> blinktInstalled=true
+# Plain test-pattern manifests rendered from charts/kubesim-blinkt (no Helm on the
+# cluster): deploy/kubesim-blinkt.yaml (agent, default), -cdi.yaml, -legacy.yaml.
+deploy-manifests:
+	hack/deploy-manifests.sh
+
+# Label each Blinkt! node first: kubectl label node <node> blinktInstalled=true
 deploy:
 	kubectl apply -f deploy/kubesim-blinkt.yaml
 

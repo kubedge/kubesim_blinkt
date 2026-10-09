@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-description: A Helm chart for Kubedge Simulator
+apiVersion: v2
 name: kubesim-blinkt
-version: 0.1.0
+description: Lights Blinkt! LEDs on Raspberry Pi nodes - through DRA (blinkt.kubedge.io) or a legacy privileged sidecar
+type: application
+version: 0.2.0
+appVersion: "0.5.2"

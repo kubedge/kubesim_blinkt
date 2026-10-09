@@ -1,0 +1,23 @@
+# Values for the deploy/kubesim-blinkt*.yaml manifests (make deploy-manifests):
+# one pod per Blinkt! node lighting all 8 LEDs in distinct colours, blinking every 500 ms.
+kind: DaemonSet
+nodeSelector:
+  kubernetes.io/arch: arm64
+  blinktInstalled: "true"
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+blinkt:
+  algorithm: fixed
+  intensity: 3
+  frequency: 500
+  pixels:
+    - {index: 0, color: [255, 0, 0]}
+    - {index: 1, color: [255, 128, 0]}
+    - {index: 2, color: [255, 255, 0]}
+    - {index: 3, color: [0, 255, 0]}
+    - {index: 4, color: [0, 255, 255]}
+    - {index: 5, color: [0, 0, 255]}
+    - {index: 6, color: [128, 0, 255]}
+    - {index: 7, color: [255, 255, 255]}

@@ -50,7 +50,8 @@ blinkt-operator/ operator (BlinktConfig: legacy | cdi | agent) + sole-writer nod
 tests/fixtures/  golden frames + state file both implementations are tested against
 build/           Dockerfiles (golang, rust) and CA bundle
 hack/            container-run cargo/fmt and the Go<->Rust interop check
-deploy/ charts/  standalone DaemonSet manifest and Helm chart
+charts/          kubesim-blinkt Helm chart (blinkt.mode agent | cdi | legacy)
+deploy/          test-pattern manifests rendered from the chart (make deploy-manifests)
 openspec/        specs and changes
 ```
 
@@ -80,9 +81,111 @@ make docker-buildx-all              # push both
 
 Each image gets `<version>` and `latest` tags. Docker with buildx is needed for the Rust targets and the images (e.g. `colima start`).
 
-Deploy the standalone DaemonSet with `make deploy` (plain YAML in `deploy/`, after
-`kubectl label node <node> blinktInstalled=true`).
+## Deploy
+
+`charts/kubesim-blinkt` lights LEDs on Blinkt! nodes; `blinkt.mode` chooses how:
+
+| mode | needs | pod |
+|---|---|---|
+| `agent` (default) | blinkt-operator, `BlinktConfig` mode `agent` | DRA claim with a PixelConfig per LED + a pause holder; the node agent draws. No blinkt process, device, privileges or hostPath |
+| `cdi` | blinkt-operator mode `cdi` (or `dra-driver/deploy`), CDI in containerd | DRA claim + unprivileged blinkt; CDI hands it `/dev/gpiochip0`, `/run/blinkt`, `BLINKT_PIXELS` |
+| `legacy` | nothing | privileged blinkt with hostPath `/etc/kubedge` |
+
+The chart is a Kubernetes demo: **every replica lights one LED in the release colour**.
+
+```sh
+helm install demo charts/kubesim-blinkt --set blinkt.release=green   # 2 replicas -> 2 green LEDs
+kubectl scale deploy/demo-kubesim-blinkt --replicas=3                # -> 3 green LEDs
+helm upgrade demo charts/kubesim-blinkt --set blinkt.release=blue --set replicaCount=3
+#   rolling update: blue LEDs come up one by one while the green ones go out
+```
+
+In DRA modes each replica claims **any free LED**, so N replicas show N LEDs even on a single Pi; a 9th replica on
+an 8-LED node stays Pending. On kind (agent mode) the upgrade drew
+`[G G G - …] → [G G G B …] → [G G G B B …] → [G G - B B …] → [G G B B B …] → [G - B B B …] → [- - B B B …]`.
+In legacy mode the release colour picks a fixed LED (red 0, green 1, blue 2), as the original demo did.
+`blinkt.pixels` replaces the per-replica LED with an explicit list (fixed indexes make the Deployment use
+`Recreate`).
+
+Without Helm, `deploy/` holds a test pattern (all 8 LEDs in distinct colours, one pod per labelled node) rendered
+from the chart: `deploy/kubesim-blinkt.yaml` (agent), `-cdi.yaml` and `-legacy.yaml`. Regenerate them with
+`make deploy-manifests`, then apply with `make deploy`
+(`kubectl label node <node> blinktInstalled=true` first). In DRA modes the test pattern claims all 8 LEDs of its
+node, so simulator pods asking for a pixel there stay Pending until it is removed.
 
 ## Main tutorials
+
+### Kubernetes demo: replicas you can see
+
+Every replica of `charts/kubesim-blinkt` lights one LED on a Blinkt! in the release colour, so the audience can
+*see* the Deployment work. Each pod claims one LED through DRA, and the blinkt-operator's node agent draws it.
+
+**Before the demo** (once per cluster):
+```sh
+kubectl apply -f blinkt-operator/dist/install.yaml        # operator + node agent
+kubectl label node <pi> blinktInstalled=true               # the Pi(s) with a Blinkt!
+kubectl apply -f - <<'YAML'
+apiVersion: blinkt.kubedge.io/v1alpha1
+kind: BlinktConfig
+metadata: {name: cluster}
+spec: {mode: agent, nodeSelector: {blinktInstalled: "true"}}
+YAML
+kubectl get blinkt          # agent / agent / True, DEVICES = 8 per Pi
+```
+
+**1. Deploy: two pods, two green LEDs**
+```sh
+helm install demo charts/kubesim-blinkt --set blinkt.release=green
+kubectl get pods -l release=demo -o wide
+```
+LEDs: `[G G - - - - - -]`
+
+**2. Scale up: one more pod, one more LED**
+```sh
+kubectl scale deploy/demo-kubesim-blinkt --replicas=3
+```
+LEDs: `[G G G - - - - -]`. Scale back to 2 and one LED goes out.
+
+**3. Rolling upgrade: watch green turn into blue**
+```sh
+helm upgrade demo charts/kubesim-blinkt --set blinkt.release=blue --set replicaCount=3
+kubectl rollout status deploy/demo-kubesim-blinkt
+```
+New pods come up before old ones go (`maxSurge: 1`, `maxUnavailable: 0`), so blue LEDs appear while the green
+ones go out:
+
+`[G G G - …] → [G G G B …] → [G G G B B …] → [G G - B B …] → [G G B B B …] → [G - B B B …] → [- - B B B …]`
+
+**4. Roll back: blue turns back into green**
+```sh
+helm rollback demo
+```
+
+**5. Self-healing: kill a pod**
+```sh
+kubectl delete $(kubectl get pod -l release=demo -o name | head -1)    # one pod
+```
+Its LED goes out when the pod is gone, and lights up again (possibly on another LED) when the Deployment replaces
+it.
+
+**6. Out of resources: a Blinkt! has 8 LEDs**
+```sh
+kubectl scale deploy/demo-kubesim-blinkt --replicas=9        # on a single Pi
+kubectl get pods -l release=demo                             # one pod Pending
+kubectl describe pod <pending-pod> | grep -A3 Events         # cannot allocate all claims
+```
+With several Pis, the scheduler spreads the extra pods to Pis that still have a free LED.
+
+**Clean up**
+```sh
+helm uninstall demo        # all its LEDs go out
+```
+
+Notes:
+- The release colour is `red`, `green` or `blue`. Add `--set blinkt.algorithm=steady` for LEDs that don't blink.
+- Without the operator, `--set blinkt.mode=legacy` runs the original privileged version. There the colour picks a
+  fixed LED (red 0, green 1, blue 2), so replicas on one Pi share that LED.
+
+### Original work
 
 [Original Fork](https://github.com/richrarobi/periBlink)
