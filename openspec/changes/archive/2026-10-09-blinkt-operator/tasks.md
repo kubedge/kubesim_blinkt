@@ -39,4 +39,4 @@
 
 ## 8. Simulator charts (follow-up PRs in kubesim_5gc, nr, epc, lte, elte)
 
-- [ ] 8.1 Add `blinkt.mode: agent`: render a ResourceClaimTemplate with the chart's pixel selector and PixelConfig (colour/intensity/algorithm from values), `resourceClaims` on the pod, no blinkt sidecar, and `strategy: Recreate`. Verify `helm template` in every mode, with legacy unchanged byte-for-byte.
+- [x] 8.1 Add `blinkt.mode: agent`: render a ResourceClaimTemplate with the chart's pixel selector and PixelConfig (colour/intensity/algorithm from values), `resourceClaims` on the pod, no blinkt sidecar, and `strategy: Recreate`. Verify `helm template` in every mode, with legacy unchanged byte-for-byte. **Done 2026-10-09:** kubesim_5gc#6, kubesim_nr#8, kubesim_epc#6, kubesim_lte#9, kubesim_elte#9: `blinkt.mode` agent (default) | legacy (byte-identical); template name hashed on `.Values.blinkt` (spec immutable); kind: lte+elte charts drawn, uninstall darkens only its pixel, recolour upgrade redraws.
