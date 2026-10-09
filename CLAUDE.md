@@ -22,23 +22,17 @@ shared through a locked state file or claimed through DRA (`blinkt.kubedge.io`),
 - **Owner:** `kubedge` (GitHub)
 - **Bootstrapped from:** [`claude-meta@109291c8b9940e3d6cb50fbb602839acdab85b0b`](https://github.com/alemaxdesign/claude-meta) on 2026-08-16T06:10:03Z
 
-### Python projects
-- Source under `src/<package>/`, tests under `tests/`.
-- Package management: `uv`. Lockfile: `uv.lock`. Run things via `uv run …`.
-- Type-checked with `mypy --strict`.
-- Linted/formatted with `ruff`.
-
-### Bash projects
-- Entrypoints under `bin/`, helpers under `lib/`.
-- Tests with `bats` under `tests/`.
-- Linted with `shellcheck`, formatted with `shfmt`.
-
-### Go / operator projects
-- Kubebuilder/operator-sdk layout: `cmd/main.go`, `api/v1alpha1/`, `internal/controller/`, `config/` kustomize bases; module path `github.com/<owner>/<name>`.
-- Dev loop: `make build test vet lint` (tests run with `-race`; `go.sum` is populated by `go mod tidy`).
-- Regenerate CRDs + DeepCopy: `make manifests generate` (needs `controller-gen` / `operator-sdk`).
-- Multi-arch images: `make docker-build` / `docker-buildx` / `docker-push` — these need a working `docker buildx`; enable it per the meta-repo's `HOW-TO-INSTALL-DOCKER.md`.
-- The scaffold ships a sample `Sample` API + a hand-written `zz_generated.deepcopy.go` so it builds green immediately — rename the API to your real resource, then re-run `make manifests generate`.
+### Working in this repo
+- Dev loop from the root: `make test lint` (all four roots), `make fmt`, `make interop`. Per root:
+  `go-*`, `dra-*`, `operator-*`, `rust-*` targets; CI (`code.yml`) runs the same targets.
+- Go modules (`go-blinkt/`, `dra-driver/`, `blinkt-operator/`) share one `go` directive; tests run with `-race`.
+- Rust needs no local toolchain: cargo runs in the pinned `rust:1.99` container (`hack/cargo.sh`, `hack/fmt.sh`).
+- A `blinkt5` behaviour change lands in BOTH `go-blinkt/` and `rust-blinkt/`, plus `tests/fixtures/` when the
+  frame or state format moves.
+- Operator API or RBAC markers changed: `make operator-generate operator-manifests` (regenerates DeepCopy, CRD,
+  RBAC and `blinkt-operator/dist/install.yaml`). Chart changed: `make deploy-manifests` re-renders `deploy/`.
+- Images: `make docker-buildx[-check] [IMPL=rust]`, `dra-buildx`, `operator-buildx` (buildx, arm64 + amd64).
+  Versions live in the Makefile (`VERSION_V1`, `OPERATOR_VERSION`) and the charts; change them only when asked.
 
 ## Available commands
 
