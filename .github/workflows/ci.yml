@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# --- private-deps-auth (disabled by default; spec `private-repo-free-org`) ---------
+# Enable when this repo pins a PRIVATE sibling — a git source in pyproject.toml/uv.lock
+# or go.mod: a runner has no ssh key and no token, so the sibling answers 404 "not
+# found" (never 403) and `uv sync` reads as "repository not found", not as auth.
+# Needs PRIVATE_DEPS_TOKEN (fine-grained PAT, Contents: read on the siblings) in BOTH
+# GitHub stores — Actions AND Dependabot — `bin/sync-secrets.py push PRIVATE_DEPS_TOKEN
+# --app both --apply`; a Dependabot-triggered run reads only the Dependabot store.
+# Uncomment the step into every job that resolves dependencies (lint, type-check, test),
+# right after `actions/checkout`, byte-identical, so the 3-way merge on the next
+# broadcast stays clean. uv and go both shell out to git for a git source, so the
+# insteadOf rewrite covers both; a private PACKAGE INDEX needs UV_INDEX_<NAME>_USERNAME /
+# _PASSWORD (or GOPROXY credentials) instead — not this block.
+#
+#      - name: private-deps-auth
+#        env:
+#          PRIVATE_DEPS_TOKEN: ${{ secrets.PRIVATE_DEPS_TOKEN }}
+#          PRIVATE_DEPS_PROBE: https://github.com/<org>/<sibling>.git # one private sibling
+#        run: |
+#          if [[ -z "$PRIVATE_DEPS_TOKEN" ]]; then
+#            echo "::error::PRIVATE_DEPS_TOKEN is empty for this run (Dependabot runs read only the Dependabot store)"
+#            exit 1
+#          fi
+#          base="https://x-access-token:${PRIVATE_DEPS_TOKEN}@github.com/"
+#          git config --global url."$base".insteadOf "https://github.com/"
+#          git config --global --add url."$base".insteadOf "ssh://git@github.com/"
+#          git config --global --add url."$base".insteadOf "git@github.com:"
+#          echo "GOPRIVATE=github.com/<org>/*" >> "$GITHUB_ENV" # go: skip proxy + sumdb for the org
+#          git ls-remote --exit-code "$PRIVATE_DEPS_PROBE" HEAD >/dev/null # a bad token fails HERE, readably
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    # A stalled runner step otherwise holds the job to GitHub's 6 h ceiling and drains the
+    # org's shared Actions minutes; a healthy run of any job here takes a few minutes.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Use the gitleaks binary directly — gitleaks-action requires a paid
+      # license for org-owned repos, and we don't need its PR-comment features.
+      - name: Install gitleaks
+        timeout-minutes: 5  # curl is where runs hang; the full-history scan is bounded by the job
+        run: |
+          GITLEAKS_VERSION=8.21.2
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+      - name: gitleaks
+        run: /tmp/gitleaks detect --source . --redact --verbose

@@ -5,7 +5,6 @@
 *.dll
 *.so
 *.dylib
-bin/*
 build/_output/*
 Dockerfile.cross
 
@@ -25,13 +24,10 @@ go.work
 .idea
 .vscode
 .DS_Store
+._*
 *.swp
 *.swo
 *~
-.DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
 
 # Rust
 /target/
@@ -39,3 +35,30 @@ go.work
 
 # blinkt-operator tool binaries
 /blinkt-operator/bin/
+
+# Environment / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Python (plugins/alemax, bin/*.py)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Operator scratch (never committed)
+/.local/
+prototypes/
+
+# Claude Code operator-local settings (per-operator, never committed). Reconciled
+# against the tracked floor .claude/settings-template.json by bin/reconcile-settings.py,
+# which creates the file by hand — so this line, not Claude Code's global exclude,
+# keeps it out of git. This repo never tracks a .claude/settings.json.
+.claude/settings.local.json
+
+# Claude Code worktrees (`claude --worktree`, subagent isolation) — inside a session's scope,
+# never committed (spec sibling-access-practice)
+.claude/worktrees/
