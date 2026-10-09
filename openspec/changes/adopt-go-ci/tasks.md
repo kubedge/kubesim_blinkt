@@ -9,7 +9,7 @@
 - [x] 2.1 Add `.github/workflows/code.yml`: triggers (PR + push to `main`), path filters, concurrency, 30 min job timeouts.
 - [x] 2.2 `go` job, matrix `go-blinkt` / `dra-driver`: `setup-go` from the module's `go.mod`, `make <root>-test <root>-lint`.
 - [x] 2.3 `operator` job: `make operator-test operator-lint`; cache `blinkt-operator/bin` (setup-envtest + assets).
-- [x] 2.4 `rust` job: buildx + GHA cache, `make rust-test rust-lint`; fail on a non-zero cargo exit (check `hack/cargo.sh` keeps it through the `sed` pipe).
+- [x] 2.4 `rust` job: buildx (no GHA cache: the job takes under a minute), `make rust-test rust-lint`; fail on a non-zero cargo exit (check `hack/cargo.sh` keeps it through the `sed` pipe).
 - [x] 2.5 `interop` job: `make interop`, then assert the output contains `INTEROP OK`.
 - [x] 2.6 `images` job: `make docker-buildx-check` (go), `make docker-buildx-check IMPL=rust`, `make dra-buildx-check`, `make operator-buildx-check`.
 
