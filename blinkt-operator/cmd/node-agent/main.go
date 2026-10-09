@@ -32,8 +32,22 @@ func main() {
 	legacyCompat := flag.Bool("legacy-compat", false, "share the strip with legacy blinkt sidecars through the shared-state file")
 	stateDir := flag.String("state-dir", "/etc/kubedge", "shared-state directory used with --legacy-compat")
 	fakeGPIO := flag.Bool("fake-gpio", false, "log frames instead of driving GPIO (test clusters only)")
+	cdiDir := flag.String("cdi-dir", "/var/run/cdi", "where dra-driver (cdi mode) wrote claim specs; leftovers are removed on unprepare")
+	clearOnly := flag.Bool("clear", false, "clear the agent's pixels (dark frame, or withdraw with --legacy-compat), then exit; used by the operator when a node leaves the agent")
 	flag.Parse()
 	log.SetFlags(log.LstdFlags)
+
+	if *clearOnly {
+		w, err := newWriter(*fakeGPIO, *legacyCompat, *stateDir)
+		if err != nil {
+			log.Fatalf("blinkt-agent: clear: %v", err)
+		}
+		if err := agent.Clear(w); err != nil {
+			log.Fatalf("blinkt-agent: clear: %v", err)
+		}
+		log.Printf("blinkt-agent: cleared strip (%s)", w.Describe())
+		return
+	}
 
 	if *nodeName == "" {
 		log.Fatal("blinkt-agent: --node-name or NODE_NAME is required")
@@ -55,22 +69,15 @@ func main() {
 	}
 
 	// Acquiring the lines is the hardware discovery.
-	var writer agent.Writer
 	var reason string
-	switch {
-	case *fakeGPIO:
-		writer = agent.NewFakeWriter()
-	case *legacyCompat:
-		writer, err = agent.NewCompatWriter(*stateDir)
-	default:
-		writer, err = agent.NewExclusiveWriter()
-	}
+	writer, err := newWriter(*fakeGPIO, *legacyCompat, *stateDir)
 	if err != nil {
 		reason = err.Error()
 		writer = nil
 	}
 
 	a := agent.New(*nodeName, writer, writer != nil)
+	a.CDIDir = *cdiDir
 
 	pluginDir := filepath.Join(kubeletplugin.KubeletPluginsDir, agent.DriverName)
 	if err := os.MkdirAll(pluginDir, 0o750); err != nil {
@@ -129,6 +136,18 @@ func main() {
 		log.Printf("blinkt-agent: shutdown: %v", err)
 	}
 	log.Printf("blinkt-agent: stopped, strip cleared")
+}
+
+// newWriter acquires the lines; acquiring them is the hardware discovery.
+func newWriter(fake, compat bool, stateDir string) (agent.Writer, error) {
+	switch {
+	case fake:
+		return agent.NewFakeWriter(), nil
+	case compat:
+		return agent.NewCompatWriter(stateDir)
+	default:
+		return agent.NewExclusiveWriter()
+	}
 }
 
 func newClient(kubeconfig string) (kubernetes.Interface, error) {

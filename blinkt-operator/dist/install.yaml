@@ -173,6 +173,13 @@ spec:
           status:
             description: BlinktConfigStatus is the observed Blinkt! setup.
             properties:
+              agentNodes:
+                description: |-
+                  AgentNodes are the nodes the agent DaemonSet covers. A node that
+                  leaves gets a one-shot clear Job before it is dropped from this list.
+                items:
+                  type: string
+                type: array
               conditions:
                 description: 'Conditions: Ready.'
                 items:
@@ -361,6 +368,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
   - pods
   verbs:
   - get
@@ -377,6 +385,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - watch
 - apiGroups:
   - blinkt.kubedge.io
@@ -479,13 +497,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: blinkt-operator
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app.kubernetes.io/name: blinkt-operator
     spec:
       containers:
-      - command:
+      - args:
+        - --leader-elect=false
+        command:
         - /manager
         env:
         - name: POD_NAMESPACE

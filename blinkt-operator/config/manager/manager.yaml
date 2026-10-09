@@ -11,6 +11,9 @@ metadata:
     app.kubernetes.io/name: blinkt-operator
 spec:
   replicas: 1
+  # Single replica without leader election: never run two managers during a rollout.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: blinkt-operator
@@ -33,6 +36,10 @@ spec:
         - name: manager
           image: blinkt-operator
           command: ["/manager"]
+          # No lease to lose when a Pi control plane's API server stalls
+          # (crash-looped on piclustera with election on). For more than one
+          # replica, use --leader-elect=true and a RollingUpdate strategy.
+          args: ["--leader-elect=false"]
           env:
             - name: POD_NAMESPACE
               valueFrom: {fieldRef: {fieldPath: metadata.namespace}}

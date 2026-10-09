@@ -5,8 +5,12 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -107,6 +111,9 @@ type Agent struct {
 	Writer    Writer
 	Published bool
 	Now       func() time.Time
+	// CDIDir is where dra-driver (cdi mode) wrote per-claim specs; unprepare
+	// removes a leftover one so a cdi->agent switch leaks nothing.
+	CDIDir string
 
 	mu       sync.Mutex
 	desired  map[types.UID][]litPixel
@@ -259,13 +266,14 @@ func (a *Agent) PrepareResourceClaims(_ context.Context, claims []*resourceapi.R
 	return out, nil
 }
 
-// UnprepareResourceClaims stops drawing the claims at once.
+// UnprepareResourceClaims stops drawing the claims at once, and removes a
+// cdi-mode spec file left by dra-driver for the claim.
 func (a *Agent) UnprepareResourceClaims(_ context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
 	out := make(map[types.UID]error, len(claims))
 	a.mu.Lock()
 	for _, c := range claims {
 		delete(a.desired, c.UID)
-		out[c.UID] = nil
+		out[c.UID] = a.removeStaleCDI(c.UID)
 	}
 	a.pruneSince()
 	a.mu.Unlock()
@@ -273,6 +281,35 @@ func (a *Agent) UnprepareResourceClaims(_ context.Context, claims []kubeletplugi
 		log.Printf("blinkt-agent: unprepared claim=%s", c)
 	}
 	return out, nil
+}
+
+// staleCDIPrefix is dra-driver's per-claim CDI spec file name prefix.
+const staleCDIPrefix = "blinkt.kubedge.io-"
+
+func (a *Agent) removeStaleCDI(uid types.UID) error {
+	if a.CDIDir == "" {
+		return nil
+	}
+	p := filepath.Join(a.CDIDir, staleCDIPrefix+string(uid)+".json")
+	switch err := os.Remove(p); {
+	case err == nil:
+		log.Printf("blinkt-agent: removed stale cdi-mode spec %s", p)
+		return nil
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("remove stale CDI spec %s: %w", p, err)
+	}
+}
+
+// Clear leaves the strip as if the agent had stopped cleanly: dark in
+// exclusive mode, only the agent's pixels withdrawn in compat mode. It is
+// what the operator's clear Job runs when a node leaves the agent.
+func Clear(w Writer) error {
+	if w == nil {
+		return nil
+	}
+	return w.Close()
 }
 
 func (a *Agent) HandleError(_ context.Context, err error, msg string) {

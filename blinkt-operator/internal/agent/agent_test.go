@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -199,5 +201,41 @@ func TestFakeWriterLogsFrames(t *testing.T) {
 	want := []string{"blinkt-agent: frame [- - - - 0,255,0,5 - - -]", "blinkt-agent: frame [- - - - - - - -]"}
 	if len(lines) != 2 || lines[0] != want[0] || lines[1] != want[1] {
 		t.Fatalf("lines = %q", lines)
+	}
+}
+
+func TestUnprepareRemovesStaleCDISpec(t *testing.T) {
+	a, _ := newAgent()
+	a.CDIDir = t.TempDir()
+	stale := filepath.Join(a.CDIDir, "blinkt.kubedge.io-u1.json")
+	other := filepath.Join(a.CDIDir, "gpu.example.com-u1.json")
+	for _, p := range []string{stale, other} {
+		if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	objs := []kubeletplugin.NamespacedObject{
+		{NamespacedName: types.NamespacedName{Namespace: "ns", Name: "c-u1"}, UID: "u1"},
+		{NamespacedName: types.NamespacedName{Namespace: "ns", Name: "c-u2"}, UID: "u2"}, // no file: fine
+	}
+	res, err := a.UnprepareResourceClaims(context.Background(), objs)
+	if err != nil || res["u1"] != nil || res["u2"] != nil {
+		t.Fatalf("res=%v err=%v", res, err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Error("stale cdi-mode spec not removed")
+	}
+	if _, err := os.Stat(other); err != nil {
+		t.Error("another driver's CDI spec was touched")
+	}
+}
+
+func TestClearClosesTheWriter(t *testing.T) {
+	r := &recorder{}
+	if err := Clear(r); err != nil || !r.closed {
+		t.Fatalf("err=%v closed=%v", err, r.closed)
+	}
+	if err := Clear(nil); err != nil {
+		t.Errorf("Clear(nil) = %v", err)
 	}
 }
