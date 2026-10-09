@@ -45,3 +45,8 @@ broadcast merges it without conflicts from project jobs.
 #### Scenario: Docs-only change
 - **WHEN** a pull request changes only Markdown or `openspec/`
 - **THEN** the code jobs are skipped and `secret-scan` still runs
+
+#### Scenario: One required code check
+- **WHEN** the code jobs finish, run or skipped
+- **THEN** `code-ok` passes only if each of them passed or was skipped, so `code-ok` and `secret-scan` are the
+  required checks on `main`

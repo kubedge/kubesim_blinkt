@@ -83,7 +83,8 @@ Each image gets `<version>` and `latest` tags. Docker with buildx is needed for 
 
 CI (`.github/workflows/code.yml`) runs the same targets on every PR: `go (go-blinkt)`, `go (dra-driver)`,
 `operator`, `rust`, `interop` and `images` (all four `*-buildx-check`, no push). A docs- or spec-only change
-skips them. `ci.yml` (`secret-scan`) comes from claude-meta; leave it as delivered.
+skips them. `code-ok` passes when each of them passed or was skipped: mark `code-ok` and `secret-scan` required on
+`main`, not the per-job names. `ci.yml` (`secret-scan`) comes from claude-meta; leave it as delivered.
 
 ## Deploy
 
