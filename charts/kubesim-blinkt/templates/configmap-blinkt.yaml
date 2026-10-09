@@ -1,0 +1,28 @@
+{{- include "kubesim_blinkt.validate" . -}}
+{{- if ne .Values.blinkt.mode "agent" }}
+# blinkt program config (cdi and legacy modes; agent mode needs none).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "kubesim_blinkt.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "kubesim_blinkt.labels" . | indent 4 }}
+data:
+  blinkt_conf.yaml: |
+    algorithm: {{ .Values.blinkt.algorithm }}
+    intensity: {{ int .Values.blinkt.intensity }}
+    frequency: {{ int .Values.blinkt.frequency }}
+    {{- $any := list }}
+    {{- range $p := .Values.blinkt.pixels }}
+    {{- if hasKey $p "index" }}
+    pixel{{ int $p.index }}: {{ toJson $p.color }}
+    {{- else }}
+    {{- $any = append $any $p }}
+    {{- end }}
+    {{- end }}
+    {{- if and $any (not (include "kubesim_blinkt.hasIndexed" .)) }}
+    # LEDs without an index take the first configured colour.
+    pixel0: {{ toJson (index $any 0).color }}
+    {{- end }}
+{{- end }}

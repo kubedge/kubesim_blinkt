@@ -1,0 +1,40 @@
+{{- include "kubesim_blinkt.validate" . -}}
+{{- if ne .Values.blinkt.mode "legacy" }}
+# The release's Blinkt! LEDs, claimed through DRA: one request per LED.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: {{ template "kubesim_blinkt.claimTemplate" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "kubesim_blinkt.labels" . | indent 4 }}
+spec:
+  spec:
+    devices:
+      requests:
+      {{- range $i, $p := .Values.blinkt.pixels }}
+        - name: led{{ $i }}
+          exactly:
+            deviceClassName: {{ $.Values.blinkt.deviceClassName }}
+            {{- if hasKey $p "index" }}
+            selectors:
+              - cel:
+                  expression: 'device.attributes["blinkt.kubedge.io"].index == {{ int $p.index }}'
+            {{- end }}
+      {{- end }}
+      {{- if eq .Values.blinkt.mode "agent" }}
+      config:
+      {{- range $i, $p := .Values.blinkt.pixels }}
+        - requests: [led{{ $i }}]
+          opaque:
+            driver: blinkt.kubedge.io
+            parameters:
+              apiVersion: blinkt.kubedge.io/v1alpha1
+              kind: PixelConfig
+              color: {{ toJson $p.color }}
+              intensity: {{ int $.Values.blinkt.intensity }}
+              algorithm: {{ $.Values.blinkt.algorithm }}
+              frequency: {{ int $.Values.blinkt.frequency }}
+      {{- end }}
+      {{- end }}
+{{- end }}

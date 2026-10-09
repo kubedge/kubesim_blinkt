@@ -50,7 +50,8 @@ blinkt-operator/ operator (BlinktConfig: legacy | cdi | agent) + sole-writer nod
 tests/fixtures/  golden frames + state file both implementations are tested against
 build/           Dockerfiles (golang, rust) and CA bundle
 hack/            container-run cargo/fmt and the Go<->Rust interop check
-deploy/ charts/  standalone DaemonSet manifest and Helm chart
+charts/          kubesim-blinkt Helm chart (blinkt.mode agent | cdi | legacy)
+deploy/          test-pattern manifests rendered from the chart (make deploy-manifests)
 openspec/        specs and changes
 ```
 
@@ -80,8 +81,28 @@ make docker-buildx-all              # push both
 
 Each image gets `<version>` and `latest` tags. Docker with buildx is needed for the Rust targets and the images (e.g. `colima start`).
 
-Deploy the standalone DaemonSet with `make deploy` (plain YAML in `deploy/`, after
-`kubectl label node <node> blinktInstalled=true`).
+## Deploy
+
+`charts/kubesim-blinkt` lights the LEDs listed in `blinkt.pixels` (a fixed `index` 0-7, or none for any free
+LED). `blinkt.mode` chooses how:
+
+| mode | needs | pod |
+|---|---|---|
+| `agent` (default) | blinkt-operator, `BlinktConfig` mode `agent` | DRA claim with a PixelConfig per LED + a pause holder; the node agent draws. No blinkt process, device, privileges or hostPath |
+| `cdi` | blinkt-operator mode `cdi` (or `dra-driver/deploy`), CDI in containerd | DRA claim + unprivileged blinkt; CDI hands it `/dev/gpiochip0`, `/run/blinkt`, `BLINKT_PIXELS` |
+| `legacy` | nothing | privileged blinkt with hostPath `/etc/kubedge` |
+
+```sh
+helm install red charts/kubesim-blinkt                      # pixel 0 red, agent mode
+helm install any charts/kubesim-blinkt -f anyfree.yaml      # pixels: [{color: [0,255,255]}]: any free LED
+helm install t charts/kubesim-blinkt --set kind=DaemonSet   # one pod per node labelled blinktInstalled=true
+```
+
+Without Helm, `deploy/` holds a test pattern (all 8 LEDs in distinct colours, one pod per labelled node) rendered
+from the chart: `deploy/kubesim-blinkt.yaml` (agent), `-cdi.yaml` and `-legacy.yaml`. Regenerate them with
+`make deploy-manifests`, then apply with `make deploy`
+(`kubectl label node <node> blinktInstalled=true` first). In DRA modes the test pattern claims all 8 LEDs of its
+node, so simulator pods asking for a pixel there stay Pending until it is removed.
 
 ## Main tutorials
 

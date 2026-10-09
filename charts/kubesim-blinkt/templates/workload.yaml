@@ -1,0 +1,126 @@
+{{- include "kubesim_blinkt.validate" . -}}
+{{- $mode := .Values.blinkt.mode }}
+apiVersion: apps/v1
+kind: {{ .Values.kind }}
+metadata:
+  name: {{ template "kubesim_blinkt.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "kubesim_blinkt.labels" . | indent 4 }}
+spec:
+  {{- if eq .Values.kind "Deployment" }}
+  replicas: {{ .Values.replicaCount }}
+  {{- if ne $mode "legacy" }}
+  # A new pod needs the old pod's LED claim released first.
+  strategy:
+    type: Recreate
+  {{- end }}
+  {{- else }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "kubesim_blinkt.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "kubesim_blinkt.name" . }}
+        release: {{ .Release.Name }}
+      {{- if ne $mode "agent" }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-blinkt.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      # blinkt clears its LEDs on SIGTERM within about a second.
+      terminationGracePeriodSeconds: 10
+      containers:
+        {{- if .Values.health.enabled }}
+        - name: configapi
+          image: "{{ .Values.health.repository }}:{{ .Values.health.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.health.port }}
+          livenessProbe:
+            httpGet: {path: /liveness, port: {{ .Values.health.port }}}
+          readinessProbe:
+            httpGet: {path: /readiness, port: {{ .Values.health.port }}}
+        {{- end }}
+        {{- if eq $mode "agent" }}
+        {{- if not .Values.health.enabled }}
+        # Holds the LED claim; blinkt-operator's node agent draws the LEDs.
+        - name: holder
+          image: {{ .Values.holder.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests: {cpu: 1m, memory: 4Mi}
+            limits: {memory: 8Mi}
+        {{- end }}
+        {{- else }}
+        - name: blinkt
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq $mode "cdi" }}
+          env:
+            - name: BLINKT_CONFIG
+              value: /config/blinkt_conf.yaml
+          # /dev/gpiochip0, /run/blinkt, BLINKT_STATE_DIR and BLINKT_PIXELS come
+          # from the claim (CDI): no privileges, no hostPath.
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+            claims:
+              - name: blinkt
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          {{- else }}
+          env:
+            - name: BLINKT_CONFIG
+              value: /etc/kubedge/blinkt_conf.yaml
+            - name: BLINKT_STATE_DIR
+              value: /etc/kubedge
+          securityContext:
+            # /dev/gpiochip0 without DRA: only privileged containers get host devices.
+            privileged: true
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+            # Host directory for the LED state shared with other blinkt processes.
+            - name: kubedge
+              mountPath: /etc/kubedge
+            - name: config
+              mountPath: /etc/kubedge/blinkt_conf.yaml
+              subPath: blinkt_conf.yaml
+              readOnly: true
+          {{- end }}
+        {{- end }}
+      {{- if ne $mode "legacy" }}
+      resourceClaims:
+        - name: blinkt
+          resourceClaimTemplateName: {{ template "kubesim_blinkt.claimTemplate" . }}
+      {{- end }}
+      {{- if ne $mode "agent" }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ template "kubesim_blinkt.fullname" . }}-config
+        {{- if eq $mode "legacy" }}
+        - name: kubedge
+          hostPath:
+            path: /etc/kubedge
+            type: DirectoryOrCreate
+        {{- end }}
+      {{- end }}
