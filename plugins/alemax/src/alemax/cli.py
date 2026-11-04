@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable
 
 from .verbs import (
+    agent,
     broadcast,
     burner,
     collect,
@@ -31,6 +32,7 @@ from .verbs import (
 )
 
 VERBS: dict[str, Callable[[argparse.ArgumentParser], None]] = {
+    "agent": agent.register,
     "broadcast": broadcast.register,
     "burner": burner.register,
     "collect": collect.register,

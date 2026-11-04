@@ -10,12 +10,12 @@ metadata:
   author: alemax
   version: "1.0"
   reviewed_model: claude-5
-  reviewed: 2026-09-07
+  reviewed: 2026-11-04
 ---
 
 ## Wraps
 
-`alemax lint` — `all`, `docs`, `skills`. Run it from the repo root as
+`alemax lint` — `all`, `docs`, `skills`, `toolchain`. Run it from the repo root as
 `uv run --directory plugins/alemax alemax lint <subcommand> …`. `--help` documents every flag.
 
 Exit codes, branching and the reasoning behind each rule are in spec `claude-consistency-lint`
@@ -41,7 +41,7 @@ to report — restating the code here is how the two drift.
 
 ## Not for
 
-- Skills, command stubs and resolved absolute paths → `/alemax:lint-skills`; both at once →
+- Skills, command stubs and resolved absolute paths → `/alemax:lint-skills`; all three audits →
   `/alemax:lint-all`.
 - OpenSpec's own delta and scenario rules → `openspec validate --strict`, which owns them and
   says it better. C3 warns only so the triad is reported in one place.

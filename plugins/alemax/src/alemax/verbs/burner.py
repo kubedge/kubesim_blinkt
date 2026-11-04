@@ -393,7 +393,7 @@ def cmd_up(a: argparse.Namespace) -> int:
                 if rows
                 else "none"
             )
-        except (OSError, subprocess.CalledProcessError, ValueError):
+        except OSError, subprocess.CalledProcessError, ValueError:
             prs = "(gh unavailable)"
         drift.append(
             ("openspec", f"{new_changes} new change dir(s) since checkpoint; open PRs: {prs}")

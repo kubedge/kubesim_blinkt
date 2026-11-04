@@ -1,7 +1,8 @@
 # Stack-agnostic base. This file ships to every project and carries only the
 # `github-actions` ecosystem, which every stack has. Each stack scaffolder
 # (meta/bootstrap/stacks/*.sh) APPENDS the ecosystem matching --stack after the # shipped-path-provenance
-# templates are rsynced: python -> uv, go -> gomod, bash -> nothing further.
+# templates are rsynced: python -> uv, go -> gomod, rust -> cargo (/rust), java -> maven (/java),
+# bash -> nothing further.
 #
 # Never add `pip` or `npm` here: a project without the corresponding manifest
 # red-fails on every Dependabot run, and standing red trains operators to

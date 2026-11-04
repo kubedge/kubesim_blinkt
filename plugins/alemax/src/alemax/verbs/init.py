@@ -34,10 +34,11 @@ from pathlib import Path
 
 from .. import git as gitmod
 from ..io import die
+from ..repo import foreign_ci_jobs as find_foreign_jobs
+from ..repo import stacks
 
 FRESH_MAX_DEFAULT = 10
 REQUIRES_RE = re.compile(r'requires-python\s*=\s*"[^"]*?(\d+\.\d+)')
-JOB_RE = re.compile(r"^  (?P<job>[A-Za-z0-9_-]+):\s*$")
 SETTINGS_IGNORE_RE = re.compile(r"(^|/)\.claude/settings\.local\.json\s*$")
 NUDGE_RE = re.compile(
     r"Just bootstrapped|delete this note after your first real commit", re.IGNORECASE
@@ -48,11 +49,6 @@ NUDGE_RE = re.compile(
 # `<repo>`, `<drive>` in the standing constraints — is permanent text, never a blank.
 FILL_MARKER = "Filling this in: CLAUDE-TEMPLATE-NOTES.md"
 FILL_LINE_RE = re.compile(r"(^|^- |\| )<[a-z][^>]*>|<[a-z][^>`]* [^>`]*>")
-STACK_MARKERS = {"python": "pyproject.toml", "go": "go.mod"}
-STACK_HINTS = {
-    "go": re.compile(r"setup-go|golangci|go\.mod", re.IGNORECASE),
-    "python": re.compile(r"setup-uv|setup-python|pyproject|pytest", re.IGNORECASE),
-}
 
 
 def project_root() -> Path:
@@ -63,9 +59,10 @@ def project_root() -> Path:
 
 
 def detect_stack(root: Path) -> str:
-    for stack, marker in STACK_MARKERS.items():
-        if (root / marker).is_file():
-            return stack
+    """Every stack the repo has a marker for, '+'-joined (`python+xcode`) — the form the
+    meta manifest records. A repo with only shell scripts is `bash`."""
+    if found := stacks(root):
+        return "+".join(found)
     if (root / "bin").is_dir() or list((root / "tests").glob("*.bats")):
         return "bash"
     return "unknown"
@@ -114,23 +111,12 @@ def context(root: Path, force: bool) -> dict:
 
 
 def foreign_ci_jobs(root: Path, stack: str) -> list[str]:
+    """Jobs whose toolchain is none of the project's `+`-joined stacks (spec stack-composition)."""
     ci = root / ".github" / "workflows" / "ci.yml"
     if not ci.is_file():
         return []
-    lines = ci.read_text(encoding="utf-8").splitlines()
-    bounds: list[tuple[str, int, int]] = []
-    for i, line in enumerate(lines):
-        if m := JOB_RE.match(line):
-            if bounds:
-                bounds[-1] = (bounds[-1][0], bounds[-1][1], i)
-            bounds.append((m["job"], i, len(lines)))
-    out = []
-    for job, start, end in bounds:
-        body = "\n".join(lines[start:end])
-        owners = {s for s, rx in STACK_HINTS.items() if rx.search(body)}
-        if owners and stack not in owners:
-            out.append(job)
-    return out
+    found = find_foreign_jobs(ci.read_text(encoding="utf-8"), set(stack.split("+")))
+    return [f["job"] for f in found or []]
 
 
 def settings_in_sync(root: Path) -> bool:

@@ -32,7 +32,9 @@
       "ToolSearch"
     ],
     "deny": [],
-    "ask": []
+    "ask": [
+      "Bash(security *)"
+    ]
   },
   "hooks": {
     "PreToolUse": [
@@ -41,8 +43,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/scope-guard.py",
+            "command": "uv run --quiet --script \"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/scope-guard.py",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --script \"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/home-volume-check.py",
+            "timeout": 5
           }
         ]
       }

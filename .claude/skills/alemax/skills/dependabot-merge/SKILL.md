@@ -9,7 +9,7 @@ allowed-tools: Bash(uv run --directory plugins/alemax alemax dependabot *)
 metadata:
   author: alemax
   reviewed_model: claude-5
-  reviewed: 2026-09-07
+  reviewed: 2026-11-04
 ---
 
 ## Wraps

@@ -35,7 +35,7 @@ the bootstrap itself.
 ## Steps
 
 1. **Gather only what cannot be inferred** — `name` (kebab-case lowercase), `stack`
-   (`python` · `bash` · `go`), `ghhandle` (the GitHub org or user that will own it), and a
+   (`python` · `bash` · `go` · `xcode` · `rust` · `java`; repeat `--stack` to combine, e.g. `go` + `rust`), `ghhandle` (the GitHub org or user that will own it), and a
    one-line `description`. Ask for these in one pass; do not quiz the operator on anything the
    cwd, the manifests or the conversation already answer.
 2. **Preflight.**

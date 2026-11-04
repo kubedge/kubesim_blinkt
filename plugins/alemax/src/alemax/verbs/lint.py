@@ -29,6 +29,11 @@ CHECKS: dict[str, list[tuple[str, list[str], list[str]]]] = {
         ("skill-check.py", [], []),
         ("path-literal-check.py", [], []),
     ],
+    # spec toolchain-versions: every declared Python/Go/Java version against the minimum,
+    # every crate's pin, the golangci-lint schema. Warnings unless --strict.
+    "toolchain": [
+        ("toolchain-check.py", [], []),
+    ],
 }
 # A project carries them at bin/; canonical authors them at scaffolding/templates/bin/
 # and has no bin/ of its own. Whichever holds them wins.
@@ -133,14 +138,19 @@ def cmd_skills(a):
     return run_checks(a, ["skills"])
 
 
+def cmd_toolchain(a):
+    return run_checks(a, ["toolchain"])
+
+
 def cmd_all(a):
-    return run_checks(a, ["docs", "skills"])
+    return run_checks(a, ["docs", "skills", "toolchain"])
 
 
 SUBCOMMANDS = {
     "docs": (cmd_docs, "the three-doc set, the context budget, intent · spec · plan"),
     "skills": (cmd_skills, "the thin-skill contract, double listings, resolved absolute paths"),
-    "all": (cmd_all, "both sets, one summary"),
+    "toolchain": (cmd_toolchain, "declared language versions against the minimum, crate pins"),
+    "all": (cmd_all, "all three sets, one summary"),
 }
 
 

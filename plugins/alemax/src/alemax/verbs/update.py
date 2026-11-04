@@ -2,25 +2,33 @@
 
 Runs in the PROJECT's clone. It finds the delivery, says how it must be applied, and
 says what stands in the way. It never commits, branches, pushes or opens a PR: the
-skill body does that with git, so every mutation is one the session chose.
+skill body does that with git, so every mutation is one the session chose. `result`
+prints an autonomous run's final line and, for a question, adds it to the handoff.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
+from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
 
 from .. import git
 from ..io import AMBIGUOUS, ERROR, FOUND, OK, emit
-from ..repo import is_meta_repo, require_project, stacks, toplevel
+from ..repo import foreign_ci_jobs, is_meta_repo, require_project, stacks, toplevel
 
 PLUGIN_MANIFEST = ".claude/skills/alemax/.claude-plugin/plugin.json"
 PLUGIN_SKILLS = ".claude/skills/alemax/skills"
 FLAT_COMMANDS = ".claude/commands/alemax"
 FLAT_SKILL_PREFIX = ".claude/skills/alemax-"
 HANDOFFS = (".local/HANDOFF.md", ".local/update-todo.md")
+# Set by `alemax agent deliver` (spec agent-launcher, design D12): this run has no human.
+AUTONOMOUS_ENV = "ALEMAX_AUTONOMOUS"
+# The one final line an autonomous run ends with, which the runner reads.
+RESULT_STATUSES = ("done", "needs-operator", "nothing-to-apply")
+NEEDS_OPERATOR_HEADING = "## Needs the operator"
 SUPERSEDED_HEADING = "## Superseded paths"
 BOOTSTRAP_PATHS = (
     ".claude/skills/alemax/skills/complete-update",
@@ -28,35 +36,31 @@ BOOTSTRAP_PATHS = (
 )
 
 BRANCH_RE = re.compile(r"(meta-broadcast/[A-Za-z0-9._/-]+|claude-meta-update)")
+# The broadcast run that staged this handoff (spec agent-launcher, design D10); absent
+# from a handoff written before run records existed.
+RUN_RE = re.compile(r"\*\*run:\*\*\s+`([^`]+)`")
 SUPERSEDED_LINE_RE = re.compile(r"^(?P<path>[^\s#][^\s]*)(?:\s+#.*)?$")
-JOB_RE = re.compile(r"^  (?P<job>[A-Za-z0-9_-]+):\s*$")
-NEEDS_RE = re.compile(r"^\s*needs:\s*(?P<needs>.+?)\s*$")
-COMMENT_OR_BLANK = re.compile(r"^\s*(?:#.*)?$")
-
-# A job belongs to a stack when it USES that toolchain, not when it mentions it.
-# `go\.mod` was decisive, so a comment naming the file claimed the job — and the one
-# stack-agnostic job in the shipped ci.yml was reported as go-only (#288).
-STACK_HINTS = {
-    "go": re.compile(r"setup-go|go-version-file|golangci|\bgo (?:build|test|vet|mod|run)\b", re.I),
-    "python": re.compile(r"setup-uv|setup-python|pyproject|pytest", re.I),
-    "node": re.compile(r"setup-node|package\.json|npm |pnpm ", re.I),
-}
-
-
 # --- context ------------------------------------------------------------------------
 
 
 def cmd_context(a: argparse.Namespace) -> int:
     root = toplevel()
     meta = is_meta_repo(root)
+    autonomous = os.environ.get(AUTONOMOUS_ENV) == "1"
     payload = {
         "root": str(root),
         "is_meta_repo": meta,
         "stacks": stacks(root),
+        "autonomous": autonomous,
     }
     plain = (
         f"project={root.name} root={root} stacks={', '.join(payload['stacks']) or 'none detected'}"
     )
+    if autonomous:
+        plain += (
+            "\nautonomous=yes — no human is watching: never ask; end with one"
+            " `alemax update result` line (done | needs-operator | nothing-to-apply)"
+        )
     if meta:
         plain = (
             "BLOCKED: this is the claude-meta clone — /alemax:complete-update runs in the\n"
@@ -75,7 +79,13 @@ def read_handoff(root: Path) -> dict:
         if path.is_file():
             text = path.read_text(encoding="utf-8", errors="ignore")
             m = BRANCH_RE.search(text)
-            return {"rel": rel, "branch": m[1] if m else None, "text": text}
+            run = RUN_RE.search(text)
+            return {
+                "rel": rel,
+                "branch": m[1] if m else None,
+                "run": run[1] if run else None,
+                "text": text,
+            }
     return {}
 
 
@@ -83,9 +93,10 @@ def cmd_handoff(a: argparse.Namespace) -> int:
     root = require_project()
     h = read_handoff(root)
     if a.json:
-        emit(h or {"rel": None, "branch": None}, as_json=True)
+        emit(h or {"rel": None, "branch": None, "run": None}, as_json=True)
     elif h:
         named = f"  names branch: {h['branch']}" if h["branch"] else ""
+        named += f"  run: {h['run']}" if h["run"] else ""
         print(f"handoff: {h['rel']}{named}\n{h['text']}")
     else:
         print(
@@ -173,21 +184,6 @@ def cmd_locate(a: argparse.Namespace) -> int:
 # --- citrim -------------------------------------------------------------------------
 
 
-def job_body(lines: list[str], start: int, end: int) -> str:
-    """A job's own lines, minus trailing blanks and comments introducing the NEXT job.
-
-    The body used to run to the next job header, so the section comment
-    `# Go / operator jobs — gated on go.mod presence` fell inside `secret-scan` and the
-    go hint matched the literal `go.mod`. A python project was told to delete the one
-    stack-agnostic job in the file, invisibly: CI stays green, because the job that
-    would have failed is gone (#288).
-    """
-    last = end
-    while last > start and COMMENT_OR_BLANK.match(lines[last - 1]):
-        last -= 1
-    return "\n".join(lines[start:last])
-
-
 def cmd_citrim(a: argparse.Namespace) -> int:
     root = require_project()
     ci = root / ".github" / "workflows" / "ci.yml"
@@ -198,43 +194,14 @@ def cmd_citrim(a: argparse.Namespace) -> int:
         return OK
 
     have = set(stacks(root))
-    lines = ci.read_text(encoding="utf-8").splitlines()
-
-    # Only the `jobs:` block holds jobs. Scanning the whole file matched the `on:`
-    # triggers too, so `push:` was reported as a job and offered for trimming.
-    jobs_at = next((i for i, ln in enumerate(lines) if ln.rstrip() == "jobs:"), None)
-    if jobs_at is None:
+    foreign = foreign_ci_jobs(ci.read_text(encoding="utf-8"), have)
+    if foreign is None:
         emit(
             {"file": str(ci), "foreign_jobs": []},
             as_json=a.json,
             plain="no `jobs:` block in ci.yml",
         )
         return OK
-    jobs_end = next(
-        (i for i in range(jobs_at + 1, len(lines)) if lines[i][:1] not in ("", " ", "#")),
-        len(lines),
-    )
-
-    bounds: list[tuple[str, int, int]] = []
-    for i in range(jobs_at + 1, jobs_end):
-        if m := JOB_RE.match(lines[i]):
-            if bounds:
-                bounds[-1] = (bounds[-1][0], bounds[-1][1], i)
-            bounds.append((m["job"], i, jobs_end))
-
-    # A job something else declares `needs:` on is load-bearing regardless of stack.
-    # `detect` is python-flavoured and every go job needs it, so trimming by stack
-    # alone proposed deleting the gate the go jobs depend on.
-    depended_on: set[str] = set()
-    for ln in lines[jobs_at:jobs_end]:
-        if m := NEEDS_RE.match(ln):
-            depended_on.update(n for n in (p.strip(" []'\"") for p in m["needs"].split(",")) if n)
-
-    foreign = []
-    for job, start, end in bounds:
-        owners = {s for s, rx in STACK_HINTS.items() if rx.search(job_body(lines, start, end))}
-        if owners and not (owners & have) and job not in depended_on:
-            foreign.append({"job": job, "line": start + 1, "stacks": sorted(owners)})
 
     payload = {"stacks_present": sorted(have), "foreign_jobs": foreign, "file": str(ci)}
     if a.json:
@@ -431,6 +398,42 @@ def cmd_stale(a: argparse.Namespace) -> int:
     return FOUND if found else OK
 
 
+# --- result -------------------------------------------------------------------------
+
+
+def cmd_result(a: argparse.Namespace) -> int:
+    """Print the run's final status line; a needs-operator question also goes in the handoff.
+
+    The line is what `alemax agent deliver` reads from an autonomous run (design D12):
+    `done: <pin> <merge sha> <pr url>`, `needs-operator: <the question>` or
+    `nothing-to-apply: <why>`. Each `--step` is printed first as `operator-step: <command>`,
+    a command only the operator may run (the staged settings `cp`, for one); the runner
+    gathers them into one list.
+    """
+    root = require_project()
+    detail = " ".join(a.detail).strip()
+    if not detail:
+        print("alemax: result needs a detail: the pin and sha, the question, or the reason")
+        return ERROR
+    line = f"{a.status}: {detail}"
+    if a.status == "needs-operator":
+        handoff = root / HANDOFFS[0]
+        handoff.parent.mkdir(parents=True, exist_ok=True)
+        text = handoff.read_text(encoding="utf-8") if handoff.is_file() else ""
+        if NEEDS_OPERATOR_HEADING not in text:
+            text = text.rstrip("\n") + f"\n\n{NEEDS_OPERATOR_HEADING}\n"
+        stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        handoff.write_text(text.rstrip("\n") + f"\n- {stamp} {detail}\n", encoding="utf-8")
+    steps = [s.strip() for s in (a.step or []) if s.strip()]
+    plain = "\n".join([*(f"operator-step: {s}" for s in steps), line])
+    emit(
+        {"status": a.status, "detail": detail, "line": line, "operator_steps": steps},
+        as_json=a.json,
+        plain=plain,
+    )
+    return OK
+
+
 # --- registration -------------------------------------------------------------------
 
 SUBCOMMANDS = {
@@ -439,6 +442,10 @@ SUBCOMMANDS = {
     "locate": (cmd_locate, "the update ref, its shape, and the bootstrap collision"),
     "citrim": (cmd_citrim, "ci.yml jobs belonging to a stack this project does not have"),
     "stale": (cmd_stale, "the flat /alemax:* surface the delivered plugin supersedes"),
+    "result": (
+        cmd_result,
+        "an autonomous run's final line: done | needs-operator | nothing-to-apply",
+    ),
 }
 
 
@@ -447,6 +454,17 @@ def register(ap: argparse.ArgumentParser) -> None:
     for name, (fn, help_text) in SUBCOMMANDS.items():
         sp = subs.add_parser(name, help=help_text)
         sp.add_argument("--json", action="store_true", help="machine-readable output")
+        if name == "result":
+            sp.add_argument("status", choices=RESULT_STATUSES)
+            sp.add_argument(
+                "detail", nargs="*", help="the pin and sha, the question, or the reason"
+            )
+            sp.add_argument(
+                "--step",
+                action="append",
+                metavar="COMMAND",
+                help="a command the operator must run, printed as operator-step: (repeatable)",
+            )
         if name == "locate":
             sp.add_argument(
                 "--meta-src",

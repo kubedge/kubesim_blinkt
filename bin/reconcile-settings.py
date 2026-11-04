@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """reconcile-settings.py — fold the tracked settings floor into settings.local.json.
@@ -20,7 +20,12 @@ The floor is never the ceiling. For `permissions.allow`, `permissions.deny`,
 `permissions.ask` and every `hooks.<event>` list: each template entry absent from
 the local file is APPENDED (template order, exact-string / exact-object match);
 a local entry absent from the template is NEVER removed — it is listed as
-local-only, a candidate to promote into the floor. Every other key is merged
+local-only, a candidate to promote into the floor. One exception: a local hook
+entry that runs only hook files the floor ships (`.claude/hooks/<file>`), when the
+template's entry for the same event runs that file differently, is SUPERSEDED —
+replaced in place by the template's entry, and reported as `~ replaced`. Without
+it, a floor that moved scope-guard from `python3 …` to `uv run --script …` left both
+entries, and scope-guard ran twice on every call. Every other key is merged
 shallowly: added when the local file lacks it, otherwise the local value wins.
 Output is deterministic (2-space indent, key order stable, trailing newline).
 
@@ -46,6 +51,7 @@ import copy
 import difflib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +63,7 @@ STAGE_REL = Path(".local") / "settings.local.proposed.json"
 CP_LINE = "! cp .local/settings.local.proposed.json .claude/settings.local.json"
 
 LIST_KEYS = ("allow", "deny", "ask")
+HOOK_FILE_RE = re.compile(r"\.claude/hooks/([A-Za-z0-9_.-]+)")
 INERT_RULE_PREFIXES = ("Write(", "NotebookEdit(", "MultiEdit(", "Glob(")
 
 EXIT_OK = 0
@@ -75,7 +82,7 @@ class FileError(Exception):
 def git(*args: str) -> str | None:
     try:
         done = subprocess.run(["git", *args], check=True, capture_output=True, text=True)
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return done.stdout.strip()
 
@@ -134,13 +141,14 @@ def canon(obj: Any) -> str:
 class Report:
     def __init__(self) -> None:
         self.added: list[str] = []  # "+ <where>: <entry>"
+        self.replaced: list[str] = []  # "~ <where>: replaced <old> -> <new>"
         self.local_only: list[str] = []  # "= <where> local-only: <entries>"
         self.kept: list[str] = []  # "= <key>: local wins"
         self.warnings: list[str] = []
 
     @property
     def missing(self) -> int:
-        return len(self.added)
+        return len(self.added) + len(self.replaced)
 
 
 def show(value: Any) -> str:
@@ -197,9 +205,48 @@ def merge_hooks(t_hooks: Any, merged: dict[str, Any], rep: Report) -> None:
     if not isinstance(l_hooks, dict):
         l_hooks = {}
     for event, t_val in t_hooks.items():
+        retire_superseded(f"hooks.{event}", t_val, l_hooks, event, rep)
         merge_list(f"hooks.{event}", t_val, l_hooks, event, rep)
     if l_hooks:
         merged["hooks"] = l_hooks
+
+
+def hook_files(entry: Any) -> set[str]:
+    """The `.claude/hooks/<file>` names a hook entry's commands run."""
+    return set(HOOK_FILE_RE.findall(canon(entry)))
+
+
+def retire_superseded(
+    where: str, t_list: Any, l_parent: dict[str, Any], key: str, rep: Report
+) -> None:
+    """Replace, in place, a local hook entry the floor's own entry supersedes.
+
+    Superseded: the local entry runs only hook files the template ships, and for one of
+    them the template's entry differs. The hook file is meta's, so its command is too; a
+    hook of the project's own (a file the floor does not ship) is never touched.
+    """
+    t_items = list(t_list or [])
+    l_items = l_parent.get(key)
+    if not t_items or not isinstance(l_items, list):
+        return
+    t_canon = {canon(e) for e in t_items}
+    by_file: dict[str, Any] = {}
+    for e in t_items:
+        for f in hook_files(e):
+            by_file.setdefault(f, e)
+    out: list[Any] = []
+    placed = {canon(e) for e in l_items if canon(e) in t_canon}
+    for e in l_items:
+        files = hook_files(e)
+        if canon(e) in t_canon or not files or not files <= by_file.keys():
+            out.append(e)
+            continue
+        new = by_file[sorted(files)[0]]
+        rep.replaced.append(f"~ {where}: replaced {show(e)} -> {show(new)}")
+        if canon(new) not in placed:
+            out.append(copy.deepcopy(new))
+            placed.add(canon(new))
+    l_parent[key] = out
 
 
 def merge_shallow(key: str, t_val: Any, merged: dict[str, Any], rep: Report) -> None:
@@ -273,6 +320,8 @@ def rel(path: Path, root: Path) -> str:
 
 def print_report(rep: Report) -> None:
     for line in rep.added:
+        print(f"  {line}")
+    for line in rep.replaced:
         print(f"  {line}")
     for line in rep.kept:
         print(f"  {line}")

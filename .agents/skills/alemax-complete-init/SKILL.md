@@ -51,7 +51,11 @@ uv run --directory plugins/alemax alemax init gaps --json
    settings floor as part of the bootstrap; report it separately.
 4. Address applicable gaps: set `origin/HEAD`, install pre-commit, trim CI jobs for
    absent stacks, and set the specified Keychain/CI secrets without printing values.
-   On Go projects generate manifests once the required tooling is installed.
+   On Go projects generate manifests once the required tooling is installed. On Rust
+   projects run `bin/rust check`; a warning that cargo is not rustup's proxy means the
+   machine needs the `rust` profile, not a workaround. On Java projects run `bin/jvm check`
+   and `bin/jvm lint`; a missing JDK, or one older than `java/pom.xml`'s release, means the machine needs
+   the `java` profile.
 5. Run the project's tests and report failures. For the user's first real change,
    use `$openspec-propose` when warranted and land work through the project's PR
    process. Do not invent a feature merely to exercise the pipeline. Merge only

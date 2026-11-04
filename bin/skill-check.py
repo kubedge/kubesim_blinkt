@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """skill-check.py — the thin-skill contract (claude-meta specs `alemax-skills`, `project-skill-authoring`).
@@ -247,7 +247,7 @@ def git(repo: Path, *args: str) -> str | None:
         done = subprocess.run(
             ["git", *args], cwd=str(repo), check=True, capture_output=True, text=True
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return done.stdout
 

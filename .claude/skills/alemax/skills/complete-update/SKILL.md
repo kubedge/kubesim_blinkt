@@ -4,11 +4,11 @@ description: "Project-side completion of a meta delivery — run from the PROJEC
 license: MIT
 compatibility: Requires git, gh, and `uv`. Runs in the project clone; refuses on a claude-meta clone.
 context: project
-allowed-tools: Bash(uv run --directory plugins/alemax alemax update *)
+allowed-tools: Bash(uv run --directory plugins/alemax alemax update *) Bash(uv run --directory plugins/alemax alemax lint toolchain *)
 metadata:
   author: alemax
   reviewed_model: claude-5
-  reviewed: 2026-09-07
+  reviewed: 2026-11-04
 ---
 
 ## Wraps
@@ -40,8 +40,8 @@ meta *stopped* shipping (propagation adds, never deletes).
 
 1. **Orient.** Run `context`, then `handoff`. `context` refusing means you are in the meta
    clone — stop. A missing handoff is not a stop.
-2. **Locate**, and apply with the verb it names — cherry-pick a broadcast, merge a sync.
-   Never merge a broadcast: it takes meta's version wholesale and drops your edits. If it
+2. **Locate**, and apply with the verb it names — cherry-pick a broadcast, merge a sync —
+   on a branch cut from `origin/main`, whatever branch the clone is on. Never merge a broadcast: it takes meta's version wholesale and drops your edits. If it
    reports several refs, use the one the handoff names; two refs can have identical trees
    and different pins, so guessing applies a stale pin with no conflict to warn you.
 3. **Clear the bootstrap collision first** if `locate` reports one — `git add` and commit
@@ -50,13 +50,62 @@ meta *stopped* shipping (propagation adds, never deletes).
    a substantive conflict; that judgement is the whole reason this runs here. After a
    config-file conflict, re-read the lines *after* the closing marker — git can move a
    shared trailing line outside the markers and silently reattach it to one side.
-5. **Finish per the handoff.** Re-lock if the manifest moved, then `reconcile-settings
-   check`, then `citrim` and `stale` — each prints the lines to run; run them and commit.
-   `stale` removes only what the handoff's § Superseded paths names.
+5. **Finish per the handoff.** Re-lock if a manifest moved (`uv lock` · `go mod tidy` ·
+   `cargo generate-lockfile` in each crate folder; a Maven project has no lockfile), and give a
+   crate folder with no `cargo` entry, or a Maven folder with no `maven` entry, in
+   `.github/dependabot.yml` one (`directory:` that folder) — a delivery can remove an
+   ecosystem but never add yours. Then `reconcile-settings check`, then `citrim` and `stale` —
+   each prints the lines to run; run them and commit.
+   `stale` removes only what the handoff's § Superseded paths names. Then
+   `uv run --directory plugins/alemax alemax lint toolchain`: relay each `below` line and its
+   fix (spec `toolchain-versions`).
+   Raising a version is this project's call, but a v1 `.golangci.yml` fails the delivered CI
+   lint job until `golangci-lint migrate` runs, and a ruff target below the minimum fails
+   pre-commit on the delivered Python.
 6. **Test, push, verify, clean up.** Your own checks, then push and confirm CI — on a
    billing-capped org a red run may never have executed, which is not a code failure.
    Delete the merged branch, remove the staged worktree (it lives in *your* repo), and
    name anything meta must re-broadcast.
+
+## When no human is watching
+
+`context` prints `autonomous=yes` when `alemax agent deliver` started this session (spec
+`agent-launcher`; the runner also appends these rules, so an older body still gets them).
+Then the steps above run as written, with these changes:
+- **Never ask.** Where a step would ask, stop instead.
+- **Cut the delivery branch from `origin/main`** after `git fetch`, never from the branch the
+  clone is on.
+- **Below the Python floor, exclude first, bump last** (before step 2). The delivered Python
+  runs under `uv run --script`, so only your linters meet the floor. If they already skip the
+  delivered paths (`.agents/`, `plugins/`, `.claude/`, the delivered `bin/` files), change
+  nothing. Otherwise exclude those paths in every tool that walks the tree (ruff
+  `extend-exclude`, the pre-commit `exclude:`, mypy, pyright, pytest) and commit that alone.
+  Raise `requires-python`, `.python-version` and the ruff target, then `uv lock`, only when
+  your CI or Makefile runs a delivered script with its own python. A failing `uv lock` or
+  check stops the run, naming the package. No `.python-version` is a note, not a stop.
+- **Anything you would have asked about stops the run.** That covers a substantive conflict,
+  a failing check, refs you cannot choose between, or a command you are refused. Leave the
+  branch and the worktree as they are, and end with
+  `uv run --directory plugins/alemax alemax update result needs-operator <the question>`.
+- **Never edit `.claude/settings*.json`.** Run `reconcile-settings.py apply --stage` and pass
+  the `cp` line it prints as `--step "<line>"` to `update result`.
+- **A file you may not edit** (`.pre-commit-config.yaml`): keep git's clean merge, or take
+  the delivered copy with git when yours equals the delivery's base. When the only conflicts
+  are its `rev:` lines, the versions are yours: `git cherry-pick --abort`, then
+  `git cherry-pick -X ours <the same commit>`. Any other conflict in it stops the run, naming
+  the file; never resolve it with Edit.
+- **Your linters flag a new top-level folder** the delivery added (`.agents/`, `plugins/`):
+  exclude it in your linter config; never edit the delivered files.
+- **A clean delivery lands by PR**, never by a push to `main`: push the delivery branch to
+  `origin`, `gh pr create --repo <origin's owner/name>`, then one
+  `gh pr checks <pr> --watch --fail-fast` with a 10-minute Bash timeout, then `gh pr merge`.
+  Checks still pending after that, or never started, stop the run as
+  `needs-operator: checks pending <names>`; never wait twice. Then step 6's clean-up, and end
+  with `… alemax update result done <pin> <merge sha> <pr url>`.
+
+When `locate` finds nothing, or the handoff's branch is gone, end with
+`… alemax update result nothing-to-apply <why>`. Make the lines it prints your last reply,
+exactly as printed: the runner reads them.
 
 ## Not for
 

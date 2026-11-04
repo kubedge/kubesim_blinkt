@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """check-doc-set.py — the three-doc set (CLAUDE.md · README.md · architecture.md).
@@ -61,7 +61,7 @@ def git(repo: Path, *args: str) -> str | None:
             capture_output=True,
             text=True,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return done.stdout
 
@@ -186,6 +186,15 @@ def main(argv: list[str] | None = None) -> int:
         block = routing_block(text).lower()
         for want in ("README.md", "architecture.md"):
             if want.lower() not in block:
+                if want.lower() == ARCH and root_doc(paths, ARCH) is None:
+                    # An absent architecture document is a warning (spec project-doc-set),
+                    # so not naming the absent file cannot be a refusal: it blocked every
+                    # CLAUDE.md commit in a project that never had one (app01's movies-library).
+                    warnings.append(
+                        f"W: {claude}: names no architecture document and the repo has "
+                        "none — seed architecture.md, then name it in the routing paragraph"
+                    )
+                    continue
                 verdict(
                     claude,
                     "R2",

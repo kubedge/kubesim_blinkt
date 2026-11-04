@@ -52,7 +52,11 @@ to report — restating the code here is how the two drift.
    Delete the `ci.yml` jobs for a stack this repo lacks: runtime gating stops them *running*, not
    Dependabot, which parses the workflow statically and opens bump PRs anyway.
 5. **Go stack only:** `make manifests generate`, then guide the rename of the sample API. Domain
-   modelling is the operator's — do not invent the resource.
+   modelling is the operator's — do not invent the resource. **Rust stack:** `bin/rust check`;
+   if it warns that cargo is not rustup's proxy, point the operator at the `rust` machine
+   profile rather than working around the pin. **Java stack:** `bin/jvm check`, then
+   `bin/jvm lint`; if either reports no JDK, or a JDK older than `java/pom.xml`'s release, point the operator at
+   the `java` machine profile (`init-machine.sh --profile java`, then `init-user.sh`).
 6. **Verify.** Run the project's own tests and report pass or fail without auto-fixing. Propose,
    do not run, `/doctor`, `/test` and `/security`. A blocked run on a billing-capped org is not a
    failure.
