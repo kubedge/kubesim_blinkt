@@ -27,4 +27,13 @@ deny outranks any project allow. No `Write(path)` rules: Claude Code accepts a `
 Bash call: a session acts only inside this repo (root, `.local/`, worktrees, scratch, toolchains,
 `~/.claude`); a sibling's checkout or a data root is refused with the `/alemax:send-msg` address
 of its session; a `dev` clone (`.local/env`) never writes prod. `.local/scope-allow.txt` is the
-only exception list. `python3`, not `uv run`: it fires on every call, ~20 ms.
+only exception list. It runs as `uv run --quiet --script`, so its `requires-python` holds; reconcile
+replaces an older entry for the same hook file rather than keeping both.
+
+**The session-start check.** `hooks.SessionStart` (matcher `startup|resume|clear`) runs
+`.claude/hooks/home-volume-check.py` once per session: when the project is on `/Volumes/<X>` and
+`$HOME` is not, the operator and the session both get one warning naming the current `$HOME`, the
+expected `/Volumes/<X>/Users/<user>` and the fix (set `HOME` or `AIML_VOLUME`, relaunch). A folder
+that `$HOME`'s presence config claims, an `--extra` account from another volume, stays silent. It
+never blocks a session and writes nothing. It is wired here, not in `~/.claude/settings.json`,
+because a wrong `$HOME` hides that file (spec `session-home-volume`).

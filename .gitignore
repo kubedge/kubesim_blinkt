@@ -42,6 +42,10 @@ go.work
 !.env.example
 
 # Python (plugins/alemax, bin/*.py)
+# Rust and Java — cargo's and Maven's build output, at any depth (rust/target/, java/target/)
+target/
+
+# Python
 __pycache__/
 *.py[cod]
 .venv/

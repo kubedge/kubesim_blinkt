@@ -9,7 +9,7 @@ allowed-tools: Bash(uv run --directory plugins/alemax alemax newproj *)
 metadata:
   author: alemax
   reviewed_model: claude-5
-  reviewed: 2026-09-07
+  reviewed: 2026-11-04
 ---
 
 ## Wraps
@@ -23,9 +23,9 @@ to report — restating the code here is how the two drift.
 
 ## Steps
 
-1. **Gather only what cannot be inferred** — `name` (kebab-case), `stack`, `ghhandle`, and a
-   one-line `description`, in one pass. Do not quiz the operator on anything the cwd, the
-   manifests or the conversation already answer.
+1. **Gather only what cannot be inferred** — `name` (kebab-case), `stack` (repeatable, e.g.
+   `go` + `rust`, `python` + `java`), `ghhandle`, and a one-line `description`, in one pass. Do not quiz the
+   operator on anything the cwd, the manifests or the conversation already answer.
 2. **`preflight`, then `validate`.** Read the collisions as real answers, not as errors to retry
    past: a `projects.yaml` hit means the project already exists — the operator probably wants
    `/alemax:complete-init`, or nothing. A `repos.yaml` hit under a *different* handle means the

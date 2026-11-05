@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """scope-guard.py — PreToolUse hook: a session acts only inside its own repo.
@@ -47,6 +47,11 @@ prod clone (`prod: <path>` in the marker, default `$HOME/Applications/<repo>`),
 under a data root the prod clone declares (`data: <path>` lines in ITS marker),
 or under a tree the tracked `<root>/data.yaml` declares `env: prod` (spec
 `data-repo-convention`) is refused — even when `scope-allow.txt` lists the path.
+One exception, the dev→prod notes channel (spec `session-confinement`, design D8):
+a dev write to THIS clone's own prod clone's `.local/tracking-*.md` or anything
+under its `.local/msg/` is allowed. Nothing else in that `.local/` (`env`,
+`scope-allow.txt`, `settings.local.proposed.json`, …), no other repo's prod clone,
+and no data root's `.local/`.
 `data.yaml` is the declaration every clone of the repo shares; the marker's
 `data:` / `prod-data:` lines stay as the additive per-machine override. `both`
 and `dev` trees are writable from a dev session. A malformed `data.yaml`, or an
@@ -65,11 +70,13 @@ command's own flag (`touch -m`, `ls -m`, `sort -m`) and the path after it is che
 
 What it cannot see: a path inside a script the command runs, an unknown `$VAR`,
 a relative path buried in an argument. It is enforced against command text, not
-effect — the sandbox is the fence for effect. A guard that crashes must not brick
-a session: any parse or runtime failure is exit 0 with a `scope-guard: note:` on
-stderr (fail open).
+effect. A guard that crashes must not brick a session, nor wave a write through:
+unparseable input, and any failure while judging a read, is exit 0 with a
+`scope-guard: note:` on stderr (fail open); a failure while judging a write — Edit,
+Write, MultiEdit, NotebookEdit, or a Bash call already classed write-shaped — is
+exit 2 with `scope-guard: refused (guard error: …)` (fail closed, design D6).
 
-    python3 .claude/hooks/scope-guard.py            # the hook form (stdin = hook JSON)
+    uv run --quiet --script .claude/hooks/scope-guard.py   # the hook form (stdin = hook JSON)
     uv run --script .claude/hooks/scope-guard.py --self-test   # fixture cases, exit 0/1
 """
 
@@ -371,7 +378,7 @@ def git_toplevel(cwd: str) -> str | None:
             text=True,
             timeout=5,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     top = done.stdout.strip()
     return top or None
@@ -453,12 +460,14 @@ class Scope:
         self.env_marker = os.path.join(self.root, ".local", "env")
         self.prod_deny: list[str] = []
         self.data_deny: list[tuple[str, str]] = []
+        self.own_prod: list[str] = []
         self.notes: list[str] = []
         if self.env_label == "dev":
             prod_clones = marker.get("prod") or []
             default = os.path.join(self.home, "Applications", os.path.basename(self.root))
             if not prod_clones and os.path.isdir(default):
                 prod_clones = [default]
+            self.own_prod = [norm(pc, self.root, self.home) for pc in prod_clones]
             for pc in prod_clones:
                 self.prod_deny.append(pc)
                 _, _, pinfo = env_of(pc, self.home)
@@ -487,12 +496,32 @@ class Scope:
     def read_only_allowed(self, path: str) -> bool:
         return any(under(path, p) for p in self.read_only)
 
+    def prod_channel(self, path: str) -> bool:
+        """True for this dev clone's own prod clone's notes channel: `.local/tracking-*.md`
+        and anything under `.local/msg/` (spec session-confinement, design D8). Nothing else
+        in the prod clone's `.local/` — `env`, `scope-allow.txt` and the proposed settings
+        decide how prod is guarded — and never another repo's prod clone."""
+        for pc in self.own_prod:
+            for p, base in ((path, pc), (real(path), real(pc))):
+                local = os.path.join(base, ".local")
+                if under(p, os.path.join(local, "msg")):
+                    return True
+                if os.path.dirname(p) == local and re.fullmatch(
+                    r"tracking-[^/]*\.md", os.path.basename(p)
+                ):
+                    return True
+        return False
+
     def prod_protected(self, path: str) -> str | None:
         """None when the path is not prod-protected; otherwise the phrase that says what
         protects it, for the refusal line."""
+        rp = real(path)
+        if self.prod_channel(path) and not any(
+            under(path, p) or under(rp, real(p)) for p, _ in self.data_deny
+        ):
+            return None
         if "Applications" in Path(path).parts:
             return PROD_CLONE_WHY
-        rp = real(path)
         if any(under(path, p) or under(rp, real(p)) for p in self.prod_deny):
             return PROD_CLONE_WHY
         for p, name in self.data_deny:
@@ -946,6 +975,11 @@ def address_hint(path: str) -> str:
     return f"/alemax:send-msg {drive} {repo}"
 
 
+# Set once decide() has classed the call, so a guard error after that point can fail
+# closed for a write (design D6): `run_hook` reads it in its error path.
+JUDGING = {"write": False}
+
+
 def decide(tool: str, tool_input: dict, scope: Scope, env: dict) -> tuple[int, str]:
     if tool == "Bash":
         command = tool_input.get("command")
@@ -957,6 +991,7 @@ def decide(tool: str, tool_input: dict, scope: Scope, env: dict) -> tuple[int, s
         reader = not write_shaped
     else:
         return EXIT_ALLOW, ""
+    JUDGING["write"] = write_shaped or any(kind in ("redirect", "write") for _, kind in cands)
     hint = ""
     for path, kind in cands:
         writes = kind in ("redirect", "write") or (kind == "path" and write_shaped)
@@ -985,6 +1020,11 @@ def decide(tool: str, tool_input: dict, scope: Scope, env: dict) -> tuple[int, s
 def evaluate(payload: dict, env: dict, default_cwd: str) -> tuple[int, str]:
     tool = payload.get("tool_name")
     tool_input = payload.get("tool_input")
+    if isinstance(tool, str) and tool in WRITE_TOOLS and not isinstance(tool_input, dict):
+        return EXIT_BLOCK, (
+            f"scope-guard: refused {tool} (guard error: tool_input is not an object) — "
+            "a write the guard cannot judge does not run"
+        )
     if not isinstance(tool, str) or not isinstance(tool_input, dict):
         return EXIT_ALLOW, "scope-guard: note: no tool_name/tool_input in hook input — allowing"
     cwd = (
@@ -1008,9 +1048,19 @@ def run_hook() -> int:
     except (ValueError, OSError) as exc:
         print(f"scope-guard: note: could not parse hook input ({exc}) — allowing", file=sys.stderr)
         return EXIT_ALLOW
+    # The tool is known before anything that can fail, so an error while judging a write
+    # refuses it (design D6). A read, and input the guard cannot parse, still fail open:
+    # a guard defect must never stop a session from reading.
+    tool = payload.get("tool_name")
+    JUDGING["write"] = False
     try:
         code, message = evaluate(payload, dict(os.environ), os.getcwd())
     except Exception as exc:
+        if tool in WRITE_TOOLS or (tool == "Bash" and JUDGING["write"]):
+            print(
+                f"scope-guard: refused (guard error: {type(exc).__name__}: {exc})", file=sys.stderr
+            )
+            return EXIT_BLOCK
         print(
             f"scope-guard: note: guard failed ({type(exc).__name__}: {exc}) — allowing",
             file=sys.stderr,
@@ -1240,6 +1290,60 @@ def self_test() -> int:
             2,
             "dev",
         )
+        # --- the dev→prod notes channel (design D8): only tracking-*.md and msg/** ---
+        prod_local = os.path.join(prod, ".local")
+        check(
+            "dev Write to its prod clone's .local/tracking-12.md → allow (the channel)",
+            call("Write", file_path=os.path.join(prod_local, "tracking-12.md"), content="x"),
+            0,
+        )
+        check(
+            "dev Write under its prod clone's .local/msg/ → allow (the channel)",
+            call(
+                "Write",
+                file_path=os.path.join(prod_local, "msg", "2026-11-04-brief.md"),
+                content="x",
+            ),
+            0,
+        )
+        check(
+            "dev Bash redirect into its prod clone's tracking file → allow",
+            call("Bash", command=f"echo x >> {prod_local}/tracking-12.md"),
+            0,
+        )
+        check(
+            "dev Write to its prod clone's .local/env → block (prod's marker)",
+            call("Write", file_path=os.path.join(prod_local, "env"), content="dev\n"),
+            2,
+            "dev",
+        )
+        check(
+            "dev Write to its prod clone's .local/scope-allow.txt → block (prod's widening)",
+            call("Write", file_path=os.path.join(prod_local, "scope-allow.txt"), content="/\n"),
+            2,
+            "dev",
+        )
+        check(
+            "dev Edit of its prod clone's .local/settings.local.proposed.json → block",
+            call("Edit", file_path=os.path.join(prod_local, "settings.local.proposed.json")),
+            2,
+            "dev",
+        )
+        check(
+            "dev Write to its prod clone's .local/resume.md → block (not the channel)",
+            call("Write", file_path=os.path.join(prod_local, "resume.md"), content="x"),
+            2,
+            "dev",
+        )
+        other_prod = os.path.join(users, "Applications", "other-repo", ".local")
+        set_allow([prod, prod_data, other_prod])
+        check(
+            "dev Write to ANOTHER repo's prod .local/tracking-1.md → block, even with scope-allow",
+            call("Write", file_path=os.path.join(other_prod, "tracking-1.md"), content="x"),
+            2,
+            "dev",
+        )
+        set_allow([prod, prod_data])
         set_marker("prod\n")
         check(
             "Edit under Applications/ with env=prod (declared) → allow",
@@ -1492,12 +1596,62 @@ def self_test() -> int:
             call("Bash", command=f"jq . {claude_json} | awk -i inplace 1 {claude_json}"),
             2,
         )
-        # --- fail open ---
+        # --- fail open for reads, closed for writes (design D6) ---
         check(
             "malformed hook input → exit 0 with a note",
             evaluate({"tool_name": "Read"}, env(), root),
             0,
             "note",
+        )
+        check(
+            "malformed Edit (tool_input not an object) → exit 2",
+            evaluate({"tool_name": "Edit", "tool_input": "x"}, env(), root),
+            2,
+            "guard error",
+        )
+        check(
+            "malformed Read (tool_input not an object) → exit 0 with a note",
+            evaluate({"tool_name": "Read", "tool_input": "x"}, env(), root),
+            0,
+            "note",
+        )
+
+        def hook_with_broken_guard(stdin: str) -> tuple[int, str]:
+            """run_hook with evaluate() raising — the guard-error path."""
+            import io
+
+            def boom(*_a: object, **_k: object) -> tuple[int, str]:
+                raise RuntimeError("synthetic guard defect")
+
+            saved_eval, saved_in, saved_err = globals()["evaluate"], sys.stdin, sys.stderr
+            globals()["evaluate"], sys.stdin, sys.stderr = boom, io.StringIO(stdin), io.StringIO()
+            try:
+                code = run_hook()
+                return code, sys.stderr.getvalue()
+            finally:
+                globals()["evaluate"], sys.stdin, sys.stderr = saved_eval, saved_in, saved_err
+
+        check(
+            "guard error on an Edit → exit 2 (refused)",
+            hook_with_broken_guard(
+                json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "x"}})
+            ),
+            2,
+            "guard error",
+        )
+        check(
+            "guard error on a Read → exit 0 with a note",
+            hook_with_broken_guard(
+                json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x"}})
+            ),
+            0,
+            "allowing",
+        )
+        check(
+            "unparseable stdin → exit 0 with a note",
+            hook_with_broken_guard("{not json"),
+            0,
+            "could not parse",
         )
         check(
             "no CLAUDE_PROJECT_DIR, cwd outside any repo → cwd is the root",

@@ -39,6 +39,7 @@ import contextlib
 import fcntl
 import json
 import os
+import pwd
 import re
 import shlex
 import shutil
@@ -94,6 +95,33 @@ def volume_from_home(home: Path) -> str | None:
     if len(parts) > 2 and parts[1] == "Volumes":
         return parts[2].lower()
     return None
+
+
+def home_volume_mismatch(cwd: str, home: Path) -> str | None:
+    """One clause naming a `$HOME` that is off the working folder's volume, else None.
+
+    The same rule as the `home-volume-check.py` SessionStart hook (spec `session-home-volume`):
+    a folder under `/Volumes/<X>` expects `$HOME` under `/Volumes/<X>` too. A wrong `$HOME`
+    reads another volume's presence config, so "not provisioned" there is usually this, not a
+    missing account.
+    """
+    here = Path(os.path.realpath(cwd)).parts
+    if not (len(here) > 2 and here[1] == "Volumes"):
+        return None
+    vol = os.path.join(os.sep, "Volumes", here[2])
+    real_home = os.path.realpath(home)
+    hp = Path(real_home).parts
+    if len(hp) > 2 and hp[1] == "Volumes" and hp[2] == here[2]:
+        return None
+    try:
+        user = pwd.getpwuid(os.getuid()).pw_name
+    except KeyError:
+        user = os.environ.get("USER", "<user>")
+    expected = os.path.join(vol, "Users", user)
+    return (
+        f"$HOME is {real_home}, not on {vol} where this folder is — the likely cause; "
+        f"the expected $HOME is {expected} (set HOME, or AIML_VOLUME={vol}, and relaunch). "
+    )
 
 
 def alemax_prefix(meta: str) -> str:
@@ -244,7 +272,7 @@ def registry(home: Path) -> Iterator[dict[str, Any]]:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             data = {}
         data.setdefault("sessions", {})
         yield data
@@ -492,7 +520,7 @@ class Mattermost:
 def load_config(home: Path) -> dict[str, Any] | None:
     try:
         return json.loads(config_path(home).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
 
 
@@ -937,7 +965,7 @@ def setup_findings(
     )
     try:
         settings = json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         settings = {}
     cmds = [
         h.get("command", "")
@@ -988,7 +1016,7 @@ def who_rows(
         vol_home = state.parents[3]
         try:
             sessions = json.loads(state.read_text(encoding="utf-8")).get("sessions", {})
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue
         for pid, e in sorted(sessions.items()):
             rows.append(
@@ -1023,7 +1051,9 @@ def cmd_status(a: argparse.Namespace) -> int:
     home = Path.home()
     cfg = load_config(home)
     if not cfg:
-        print("presence is not provisioned on this volume")
+        print(
+            f"{home_volume_mismatch(os.getcwd(), home) or ''}presence is not provisioned on this volume"
+        )
         return ERROR
     with registry(home) as data:
         sessions = dict(data["sessions"])

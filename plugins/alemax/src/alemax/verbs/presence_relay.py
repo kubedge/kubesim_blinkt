@@ -79,7 +79,7 @@ def mentions(text: str, known: set[str]) -> set[str]:
 def _load(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     try:
         return {**default, **json.loads(path.read_text(encoding="utf-8"))}
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return dict(default)
 
 
@@ -372,14 +372,17 @@ def _relay_session(home: Path) -> tuple[dict[str, Any], pr.Mattermost]:
 
 def _folder_account(home: Path) -> tuple[dict[str, Any], dict[str, Any], pr.Mattermost]:
     cfg = pr.load_config(home)
+    # A `$HOME` on another volume reads another volume's config: name it before provisioning
+    # (spec `session-home-volume`). Empty when `$HOME` is right, so the message is unchanged.
+    why = pr.home_volume_mismatch(os.getcwd(), home) or ""
     if not cfg:
-        die("presence is not provisioned on this volume")
+        die(f"{why}presence is not provisioned on this volume")
     account = pr.account_for_cwd(os.getcwd(), cfg.get("accounts", []))
     if account is None:
         # Name the whole chain: the skills run from plugins/alemax, and a message naming only
         # that subdirectory reads as a path bug when the real cause is an unprovisioned clone.
         die(
-            f"no account to act as — neither {os.getcwd()} nor any folder above it is provisioned. "
+            f"{why}no account to act as — neither {os.getcwd()} nor any folder above it is provisioned. "
             "Give a folder its own account from the volume's claude-meta fork: "
             "alemax presence provision --extra <name>=<folder> --apply"
         )

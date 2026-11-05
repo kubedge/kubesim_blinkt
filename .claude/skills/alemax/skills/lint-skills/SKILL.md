@@ -15,7 +15,7 @@ metadata:
 
 ## Wraps
 
-`alemax lint` — `all`, `docs`, `skills`. Run it from the repo root as
+`alemax lint` — `all`, `docs`, `skills`, `toolchain`. Run it from the repo root as
 `uv run --directory plugins/alemax alemax lint <subcommand> …`. `--help` documents every flag.
 
 Every rule and its reason is in its checker's header (`skill-check.py`, `path-literal-check.py`);
@@ -58,7 +58,7 @@ installed → say so, and report this lint's verdict alone.
 
 ## Not for
 
-- The documents and the change triad → `/alemax:lint-docs`; both at once → `/alemax:lint-all`.
+- The documents and the change triad → `/alemax:lint-docs`; all three audits → `/alemax:lint-all`.
 - Authoring a new skill → from a meta clone, follow its `ALEMAX-SKILLS.md` section
   "Adding a new `/alemax:*` skill"; `/skill-craft:reviewing-skills` with no target names the
   guide's practices that apply.

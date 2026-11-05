@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """path-literal-check.py — variables, never resolved paths (claude-meta spec `claude-consistency-lint`).
@@ -115,7 +115,7 @@ MARKER_RE = re.compile(r"path-literal-(?:ok|docs)")
 ROOT_DOCS = ("claude.md", "readme.md", "architecture.md")
 SCANNED_SUFFIXES = (".md", ".py", ".sh")
 # A directory whose contents a session reads as instruction, wherever it sits in the
-# tree — so both `.claude/rules/` and `scaffolding/claude/rules/` match.
+# tree — so both `.claude/rules/` and `scaffolding/.claude/rules/` match.
 INSTRUCTION_DIRS = ("claude/commands/", "claude/rules/", "claude/hooks/")
 # `.local/` is the fleet's gitignored operator scratch (spec `scaffolding-boundary`): a session's
 # notes and fixtures live there and are nobody's instructions.
@@ -191,7 +191,7 @@ def git(repo: Path, *args: str) -> str | None:
         done = subprocess.run(
             ["git", *args], cwd=str(repo), check=True, capture_output=True, text=True
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return done.stdout
 
@@ -281,7 +281,7 @@ def marker_covered_lines(text: str, rel: str) -> set[int]:
                 continue
             if first is None and tok.type != tokenize.COMMENT:
                 first = tok.start[0]
-    except (tokenize.TokenError, IndentationError, SyntaxError):
+    except tokenize.TokenError, IndentationError, SyntaxError:
         # Unparseable file: fall back to the line-local behaviour rather than
         # exempting a span we could not establish.
         pass

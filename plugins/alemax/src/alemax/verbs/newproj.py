@@ -37,7 +37,7 @@ from .. import git as gitmod
 from ..io import die
 
 CANONICAL = "alemaxdesign/claude-meta"
-STACKS = ("python", "bash", "go")
+STACKS = ("python", "bash", "go", "xcode", "rust", "java")
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 HANDLE_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 ENTRY_RE = re.compile(r"^  - name: (?P<name>\S+)\s*$")
@@ -121,14 +121,30 @@ def preflight(root: Path) -> dict:
     return out
 
 
+def stack_parts(a) -> list[str]:
+    """Every --stack, in order; a value may itself be `+`-joined (`python+xcode`)."""
+    return [p for v in a.stack or [] for p in v.split("+") if p]
+
+
+def stack_label(a) -> str:
+    """The manifest form of the stack set (spec stack-composition)."""
+    return "+".join(stack_parts(a))
+
+
 def validate(root: Path, a) -> dict:
-    out: dict = {"name": a.name, "stack": a.stack, "ghhandle": a.ghhandle, "blocked": []}
+    out: dict = {"name": a.name, "stack": stack_label(a), "ghhandle": a.ghhandle, "blocked": []}
     if not NAME_RE.match(a.name or ""):
         out["blocked"].append(
             f"--name '{a.name}' is not kebab-case lowercase (a-z, 0-9, single hyphens)"
         )
-    if a.stack not in STACKS:
-        out["blocked"].append(f"--stack '{a.stack}' is not one of: {', '.join(STACKS)}")
+    parts = stack_parts(a)
+    if not parts:
+        out["blocked"].append("--stack is required")
+    for part in parts:
+        if part not in STACKS:
+            out["blocked"].append(f"--stack '{part}' is not one of: {', '.join(STACKS)}")
+    for part in sorted({p for p in parts if parts.count(p) > 1}):
+        out["blocked"].append(f"--stack '{part}' given twice")
     if not HANDLE_RE.match(a.ghhandle or ""):
         out["blocked"].append(f"--ghhandle '{a.ghhandle}' is not a valid GitHub owner name")
     if not (a.description or "").strip():
@@ -173,7 +189,7 @@ def cmd_validate(a) -> int:
         for b in r["blocked"]:
             print(f"BLOCKED: {b}")
         if not r["blocked"]:
-            print(f"{a.name} ({a.stack}) → {r.get('destination', '?')}")
+            print(f"{a.name} ({stack_label(a)}) → {r.get('destination', '?')}")
     return 1 if r["blocked"] else 0
 
 
@@ -184,7 +200,7 @@ def cmd_plan(a) -> int:
     effects = [
         f"create a PRIVATE GitHub repo {a.ghhandle}/{a.name}",
         f"clone it to {dest}",
-        f"scaffold the {a.stack} stack there, with .meta-version pinned to canonical main",
+        f"scaffold the {stack_label(a)} stack there, with .meta-version pinned to canonical main",
         "append a row to THIS fork's projects.yaml and commit it",
         f"seed ideas-on-the-go-{a.name}.md in the Obsidian vault (--no-obsidian skips the prompt)",
         "generate a Desktop launcher, if this drive opted into launchers (--no-launcher skips)",
@@ -216,8 +232,7 @@ def cmd_run(a) -> int:
         str(script),
         "--name",
         a.name,
-        "--stack",
-        a.stack,
+        *(arg for part in stack_parts(a) for arg in ("--stack", part)),
         "--ghhandle",
         a.ghhandle,
         "--description",
@@ -242,7 +257,12 @@ def cmd_run(a) -> int:
 
 def add_args(p: argparse.ArgumentParser, full: bool = False) -> None:
     p.add_argument("--name", required=True, help="kebab-case lowercase project name")
-    p.add_argument("--stack", required=True, help=f"one of: {', '.join(STACKS)}")
+    p.add_argument(
+        "--stack",
+        required=True,
+        action="append",
+        help=f"one of: {', '.join(STACKS)}; repeat it (or join with +) to combine stacks",
+    )
     p.add_argument("--ghhandle", required=True, help="GitHub org or user that will own the repo")
     p.add_argument("--description", default="", help="one-line description")
     # On every subcommand that names a destination, so `validate` and `plan` check the

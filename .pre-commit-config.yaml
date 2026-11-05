@@ -5,6 +5,9 @@
 # Adjust if friction outweighs value.
 
 minimum_pre_commit_version: "3.5.0"
+# Hooks run at commit unless they say otherwise. A project that also installs the pre-push
+# hook type (the rust stack does, for clippy) would otherwise rerun every hook on push.
+default_stages: [pre-commit]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -45,6 +48,26 @@ repos:
       - id: shfmt
         args: ["-i", "2", "-ci", "-bn", "-d"]
 
+  # Rust (rust stack: the crate in rust/). language: system, so cargo is the machine's
+  # rustup proxy and honours rust/rust-toolchain.toml. Inert in a repository without
+  # rust/*.rs. clippy compiles, so it runs on push (`pre-commit install --hook-type
+  # pre-push`, which init-project.sh does for a rust project), not on every commit.
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --check (rust/)
+        entry: cargo fmt --manifest-path rust/Cargo.toml -- --check
+        language: system
+        files: ^rust/.*\.rs$
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy -D warnings (rust/)
+        entry: cargo clippy --manifest-path rust/Cargo.toml --all-targets --locked -- -D warnings
+        language: system
+        files: ^rust/.*\.rs$
+        pass_filenames: false
+        stages: [pre-push]
+
   # Secret scanning
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
@@ -55,12 +78,12 @@ repos:
   # of the three is staged — at the root, or under docs/ or openspec/ where it does
   # not belong. Refuses two mechanical defects (a doc under docs/ instead of the
   # root; a CLAUDE.md whose first paragraph no longer names the other two) and
-  # warns on everything else. `python3 bin/check-doc-set.py --help`.
+  # warns on everything else. `uv run --script bin/check-doc-set.py --help`.
   - repo: local
     hooks:
       - id: check-doc-set
         name: doc set (CLAUDE.md · README.md · architecture.md)
-        entry: python3 bin/check-doc-set.py
+        entry: uv run --quiet --script bin/check-doc-set.py
         language: system
         files: (?i)^(docs/|openspec/)?(CLAUDE\.md|README\.md|architecture\.md)$
         pass_filenames: false
@@ -71,12 +94,12 @@ repos:
   # block in CLAUDE.md and an `@import` of an index.md or of any file over 5,000 tokens (past
   # that, a compaction hands back a path with no content); warns on the 120/400-line budgets,
   # a ledger entry with no since/enforced by/depth/retire when, and an unscoped rules file
-  # over 60 lines. `python3 bin/claude-md-check.py --help`.
+  # over 60 lines. `uv run --script bin/claude-md-check.py --help`.
   - repo: local
     hooks:
       - id: claude-md-check
         name: startup budget (CLAUDE.md · @imports · .claude/rules)
-        entry: python3 bin/claude-md-check.py
+        entry: uv run --quiet --script bin/claude-md-check.py
         language: system
         files: (?i)^(CLAUDE\.md|\.claude/(CLAUDE\.md|rules/.*\.md))$
         pass_filenames: false
@@ -88,12 +111,12 @@ repos:
   # does not exist, and a stub PAIRED with a skill whose description is a summary rather than a
   # routing line (D2 — substance in both files is what drifts); warns on a double listing (D1:
   # one capability, two entries in a budgeted listing) and the rest.
-  # `python3 bin/skill-check.py --help`.
+  # `uv run --script bin/skill-check.py --help`.
   - repo: local
     hooks:
       - id: skill-check
         name: skills (thin body · provenance · live script paths)
-        entry: python3 bin/skill-check.py
+        entry: uv run --quiet --script bin/skill-check.py
         language: system
         files: ^\.claude/(skills|commands)/.*\.md$
         pass_filenames: false
@@ -109,12 +132,12 @@ repos:
   # this check agrees with), and skips a line marked `path-literal-ok` / `path-literal-docs`.
   # Deliberate literals go in `.claude/path-literal-allow.txt`, one per line with a required
   # trailing `# <reason>`; an entry with no reason is itself a refusal.
-  # `python3 bin/path-literal-check.py --help`.
+  # `uv run --script bin/path-literal-check.py --help`.
   - repo: local
     hooks:
       - id: path-literal-check
         name: literal paths (variables, never one machine's path)
-        entry: python3 bin/path-literal-check.py
+        entry: uv run --quiet --script bin/path-literal-check.py
         language: system
         files: (?i)^((CLAUDE|README|architecture)\.md|.*/SKILL\.md|.*claude/(commands|rules|hooks)/.*\.(md|py|sh)|(.*/)?bin/.*\.(md|py|sh)|.*/scripts/.*\.(md|py|sh))$
         pass_filenames: false
@@ -125,12 +148,12 @@ repos:
   # intent/<change>/{intent,spec,plan}.md; neither present, nothing to check. Refuses a missing
   # or empty intent or plan document; the spec-delta rule is `openspec validate --strict`'s and
   # warns here only so the triad is reported in one place.
-  # `python3 bin/change-triad-check.py --help`.
+  # `uv run --script bin/change-triad-check.py --help`.
   - repo: local
     hooks:
       - id: change-triad-check
         name: change triad (intent · spec · plan)
-        entry: python3 bin/change-triad-check.py
+        entry: uv run --quiet --script bin/change-triad-check.py
         language: system
         files: ^(openspec/changes/(?!archive/)|intent/).*$
         pass_filenames: false
@@ -138,12 +161,12 @@ repos:
   # The data-tree declaration (data.yaml, spec `data-repo-convention`). Fires only when
   # data.yaml is staged: refuses a path inside the code repo, a public-forge remote, an
   # unset variable, or a path that does not exist on this machine (`SKIP=data-check` to
-  # commit a declaration written for another machine). `python3 bin/data-check.py --help`.
+  # commit a declaration written for another machine). `uv run --script bin/data-check.py --help`.
   - repo: local
     hooks:
       - id: data-check
         name: data trees (data.yaml — outside the repo, non-public remotes)
-        entry: python3 bin/data-check.py
+        entry: uv run --quiet --script bin/data-check.py
         language: system
         files: ^data\.yaml$
         pass_filenames: false

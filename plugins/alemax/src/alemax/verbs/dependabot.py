@@ -82,7 +82,7 @@ def preflight(gh: Gh) -> None:
                 text=True,
                 cwd=str(Path.cwd()),
             )
-        except (OSError, subprocess.CalledProcessError):
+        except OSError, subprocess.CalledProcessError:
             die("no git remote `origin` here — pass --repo OWNER/REPO")
 
 

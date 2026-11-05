@@ -4,12 +4,14 @@
 FROM --platform=$BUILDPLATFORM rust:1.99-bookworm AS builder
 ARG TARGETARCH
 WORKDIR /workspace
+# The pin comes first so the musl target lands on the toolchain cargo uses, not the image's default.
+COPY rust-blinkt/rust-toolchain.toml ./
 RUN case "$TARGETARCH" in \
       arm64) echo aarch64-unknown-linux-musl ;; \
       amd64) echo x86_64-unknown-linux-musl ;; \
       *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
     esac > /triple && rustup target add "$(cat /triple)"
-COPY rust-blinkt/Cargo.toml rust-blinkt/Cargo.lock rust-blinkt/rust-toolchain.toml ./
+COPY rust-blinkt/Cargo.toml rust-blinkt/Cargo.lock ./
 COPY rust-blinkt/src/ src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/workspace/target,id=blinkt-target-${TARGETARCH} \

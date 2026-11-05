@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """data-check.py — verify the data trees a project declares in `data.yaml`.
@@ -16,7 +16,7 @@ refuse a write into a `prod` tree from a `dev` session.
   uv run --script bin/data-check.py --env dev       # entries a dev session uses (env: dev | both)
   uv run --script bin/data-check.py --declared-only # schema + placement only, no filesystem
   uv run --script bin/data-check.py --json          # resolved entries, for another tool
-  python3 bin/data-check.py … works too (no uv needed)
+  python3 bin/data-check.py … works too on Python 3.14+ (no uv needed)
 
 Per entry (`- {name, kind, path, remote?, env}`):
 
@@ -161,7 +161,7 @@ def repo_toplevel(start: Path) -> Path:
             text=True,
         )
         return Path(done.stdout.strip()).resolve()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return start.resolve()
 
 

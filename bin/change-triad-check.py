@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """change-triad-check.py — every in-flight change carries intent · spec · plan.
@@ -66,7 +66,7 @@ def git(repo: Path, *args: str) -> str | None:
         done = subprocess.run(
             ["git", *args], cwd=str(repo), check=True, capture_output=True, text=True
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return done.stdout
 

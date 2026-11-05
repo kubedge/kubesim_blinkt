@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
 """sync-secrets.py — keep a project's secret stores in step: Keychain → GitHub.
@@ -19,7 +19,7 @@ nothing keeps in sync for you (spec `private-repo-free-org`):
   uv run --script bin/sync-secrets.py check [--app both]         # exit 1 when a Keychain key is missing from GitHub
   uv run --script bin/sync-secrets.py push KEY [KEY…] [--app both]   # dry-run: says what it would push
   uv run --script bin/sync-secrets.py push KEY --apply           # Keychain → `gh secret set`, value over stdin
-  python3 bin/sync-secrets.py … works too (no uv needed)
+  python3 bin/sync-secrets.py … works too on Python 3.14+ (no uv needed)
 
 `--app actions|dependabot|both` (default `actions`) picks the GitHub store(s) for
 `check` and `push`. A key whose `.env.example` description mentions `dependabot`
